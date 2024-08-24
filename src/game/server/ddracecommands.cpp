@@ -1,4 +1,5 @@
 /* (c) Shereef Marzouk. See "licence DDRace.txt" and the readme.txt in the root of the distribution for more information. */
+#include "base/vmath.h"
 #include "gamecontext.h"
 
 #include <engine/antibot.h>
@@ -50,6 +51,25 @@ void CGameContext::ConGoUp(IConsole::IResult *pResult, void *pUserData)
 	if(!CheckClientId(pResult->m_ClientId))
 		return;
 	pSelf->MoveCharacter(pResult->m_ClientId, 0, -1 * Tiles);
+}
+
+void CGameContext::ConSetVel(IConsole::IResult *pResult, void *pUserData)
+{
+		if (pResult->NumArguments() != 3)
+		return;
+
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(!CheckClientId(pResult->m_ClientId))
+		return;
+
+	int Victim = pResult->GetInteger(0);
+	float velX = pResult->GetFloat(1);
+	float velY = pResult->GetFloat(2);
+	if(!CheckClientId(pResult->m_ClientId))
+		return;
+
+	if(pSelf->m_apPlayers[Victim])
+		pSelf->m_apPlayers[Victim]->GetCharacter()->SetVelocity(vec2(velX,velY));
 }
 
 void CGameContext::ConMove(IConsole::IResult *pResult, void *pUserData)
