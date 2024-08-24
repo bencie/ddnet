@@ -411,6 +411,7 @@ private:
 	static void ConGoDown(IConsole::IResult *pResult, void *pUserData);
 	static void ConMove(IConsole::IResult *pResult, void *pUserData);
 	static void ConMoveRaw(IConsole::IResult *pResult, void *pUserData);
+	static void ConSetVel(IConsole::IResult *pResult, void *pUserData);
 
 	static void ConToTeleporter(IConsole::IResult *pResult, void *pUserData);
 	static void ConToCheckTeleporter(IConsole::IResult *pResult, void *pUserData);
