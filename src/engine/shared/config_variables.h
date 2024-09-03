@@ -288,6 +288,13 @@ MACRO_CONFIG_INT(ClVideoX264Preset, cl_video_preset, 5, 0, 9, CFGFLAG_CLIENT | C
 // debug
 #ifdef CONF_DEBUG
 MACRO_CONFIG_INT(DbgDummies, dbg_dummies, 0, 0, MAX_CLIENTS, CFGFLAG_SERVER, "Add debug dummies to server (Debug build only)")
+MACRO_CONFIG_INT(DbgDummiesFire, dbg_dummies_fire, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +fire (Debug build only)")
+MACRO_CONFIG_INT(DbgDummiesWeapon, dbg_dummies_weapon, 0, 0, 5, CFGFLAG_SERVER, "Set weapon the debug dummies should hold (Debug build only)")
+MACRO_CONFIG_INT(DbgDummiesLookX, dbg_dummies_look_x, 0, -360, 360, CFGFLAG_SERVER, "Debug dummies X look direction (Debug build only)")
+MACRO_CONFIG_INT(DbgDummiesLookY, dbg_dummies_look_y, 0, -360, 360, CFGFLAG_SERVER, "Debug dummies Y look direction (Debug build only)")
+MACRO_CONFIG_INT(DbgDummiesJump, dbg_dummies_jump, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +jump (Debug build only)")
+MACRO_CONFIG_INT(DbgDummiesHook, dbg_dummies_hook, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +hook (Debug build only)")
+MACRO_CONFIG_INT(DbgDummiesDirection, dbg_dummies_direction, 0, -1, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +left=-1 / +right=1 (Debug build only)")
 #endif
 
 MACRO_CONFIG_INT(DbgTuning, dbg_tuning, 0, 0, 2, CFGFLAG_CLIENT, "Display information about the tuning parameters that affect the own player (0 = off, 1 = show changed, 2 = show all)")
