@@ -2836,8 +2836,8 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 			net_addr_str(&Client.m_DebugDummyAddr, Client.m_aDebugDummyAddrStringNoPort.data(), Client.m_aDebugDummyAddrStringNoPort.size(), false);
 
 			GameServer()->OnClientConnected(ClientId, nullptr);
-			Client.m_State = CClient::STATE_INGAME;
-			str_format(Client.m_aName, sizeof(Client.m_aName), "Debug dummy %d", DummyIndex + 1);
+			m_aClients[ClientId].m_State = CClient::STATE_INGAME;
+			str_format(m_aClients[ClientId].m_aName, sizeof(m_aClients[ClientId].m_aName), "%d", DummyIndex + 1);
 			GameServer()->OnClientEnter(ClientId);
 		}
 		else if(!AddDummy && Client.m_DebugDummy)
@@ -2845,15 +2845,15 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 			DelClientCallback(ClientId, "Dropping debug dummy", this);
 		}
 
-		if(AddDummy && Client.m_DebugDummy)
-		{
-			CNetObj_PlayerInput Input = {0};
-			Input.m_Direction = (ClientId & 1) ? -1 : 1;
-			Client.m_aInputs[0].m_GameTick = Tick() + 1;
-			mem_copy(Client.m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(Client.m_aInputs[0].m_aData)));
-			Client.m_LatestInput = Client.m_aInputs[0];
-			Client.m_CurrentInput = 0;
-		}
+		// if(AddDummy && m_aClients[ClientId].m_DebugDummy)
+		// {
+			// CNetObj_PlayerInput Input = {0};
+			// Input.m_Direction = (ClientId & 1) ? -1 : 1;
+			// m_aClients[ClientId].m_aInputs[0].m_GameTick = Tick() + 1;
+			// mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
+			// m_aClients[ClientId].m_LatestInput = m_aClients[ClientId].m_aInputs[0];
+			// m_aClients[ClientId].m_CurrentInput = 0;
+		// }
 	}
 
 	m_PreviousDebugDummies = ForceDisconnect ? 0 : g_Config.m_DbgDummies;
