@@ -1,6 +1,7 @@
 /* (c) Shereef Marzouk. See "licence DDRace.txt" and the readme.txt in the root of the distribution for more information. */
 #include "base/vmath.h"
 #include "engine/shared/protocol.h"
+#include "engine/shared/protocol.h"
 #include "gamecontext.h"
 
 #include <engine/antibot.h>
@@ -486,12 +487,12 @@ void CGameContext::ConTeleportAll(IConsole::IResult *pResult, void *pUserData)
 	}
 
 	CCharacter *pTargetChr = pSelf->GetPlayerChar(TeleTo);
-	if(!pTargetChr)
+	if (!pTargetChr)
 	{
 		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tele", "target player not found");
 		return;
 	}
-
+	
 	vec2 Pos = pTargetChr->m_Pos;
 
 	for(int i = 0; i < MAX_CLIENTS; i++)
@@ -502,10 +503,12 @@ void CGameContext::ConTeleportAll(IConsole::IResult *pResult, void *pUserData)
 		{
 			pSelf->Teleport(pChr, Pos);
 			pChr->ResetJumps();
+			pChr->UnFreeze();
 			pChr->SetVelocity(vec2(0, 0));
 		}
 	}
 }
+
 
 void CGameContext::ConKill(IConsole::IResult *pResult, void *pUserData)
 {
