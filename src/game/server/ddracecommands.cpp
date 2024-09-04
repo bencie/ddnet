@@ -1,5 +1,6 @@
 /* (c) Shereef Marzouk. See "licence DDRace.txt" and the readme.txt in the root of the distribution for more information. */
 #include "base/vmath.h"
+#include "engine/shared/protocol.h"
 #include "gamecontext.h"
 
 #include <engine/antibot.h>
@@ -446,6 +447,41 @@ void CGameContext::ConTeleport(IConsole::IResult *pResult, void *pUserData)
 		pChr->SetVelocity(vec2(0, 0));
 	}
 }
+
+void CGameContext::ConTeleportAll(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	int TeleTo = pResult->NumArguments() ? pResult->GetInteger(0) : pResult->m_ClientId;
+	int AuthLevel = pSelf->Server()->GetAuthedState(pResult->m_ClientId);
+	if(AuthLevel < g_Config.m_SvTeleOthersAuthLevel)
+	{
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tele", "you aren't allowed to tele others");
+		return;
+	}
+
+	CCharacter *pTargetChr = pSelf->GetPlayerChar(TeleTo);
+	if (!pTargetChr)
+	{
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tele", "target player not found");
+		return;
+	}
+	
+	vec2 Pos = pTargetChr->m_Pos;
+
+	for(int i = 0; i < MAX_CLIENTS; i++)
+	{
+		CCharacter *pChr = pSelf->GetPlayerChar(i);
+
+		if(pChr && pSelf->m_apPlayers[i])
+		{
+			pSelf->Teleport(pChr, Pos);
+			pChr->ResetJumps();
+			pChr->UnFreeze();
+			pChr->SetVelocity(vec2(0, 0));
+		}
+	}
+}
+
 
 void CGameContext::ConKill(IConsole::IResult *pResult, void *pUserData)
 {
