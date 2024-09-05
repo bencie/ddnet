@@ -2793,9 +2793,6 @@ int CServer::LoadMap(const char *pMapName)
 #ifdef CONF_DEBUG
 void CServer::UpdateDebugDummies(bool ForceDisconnect)
 {
-	if(m_PreviousDebugDummies == g_Config.m_DbgDummies && !ForceDisconnect)
-		return;
-
 	g_Config.m_DbgDummies = clamp(g_Config.m_DbgDummies, 0, MaxClients());
 	for(int DummyIndex = 0; DummyIndex < maximum(m_PreviousDebugDummies, g_Config.m_DbgDummies); ++DummyIndex)
 	{
@@ -4049,6 +4046,18 @@ void CServer::ConchainConnLoggingServerChange(IConsole::IResult *pResult, void *
 }
 #endif
 
+#ifdef CONF_DEBUG
+void CServer::ConchainUpdateDbgDummies(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
+{
+	pfnCallback(pResult, pCallbackUserData);
+	if(pResult->NumArguments())
+	{
+		CServer *pThis = static_cast<CServer *>(pUserData);
+		pThis->UpdateDebugDummies(0);
+	}
+}
+#endif
+
 void CServer::RegisterCommands()
 {
 	m_pConsole = Kernel()->RequestInterface<IConsole>();
@@ -4106,6 +4115,16 @@ void CServer::RegisterCommands()
 
 #if defined(CONF_FAMILY_UNIX)
 	Console()->Chain("sv_conn_logging_server", ConchainConnLoggingServerChange, this);
+#endif
+
+#ifdef CONF_DEBUG
+	Console()->Chain("dbg_fire", ConchainUpdateDbgDummies, this);
+	Console()->Chain("dbg_weapon", ConchainUpdateDbgDummies, this);
+	Console()->Chain("dbg_look_x", ConchainUpdateDbgDummies, this);
+	Console()->Chain("dbg_look_y", ConchainUpdateDbgDummies, this);
+	Console()->Chain("dbg_jump", ConchainUpdateDbgDummies, this);
+	Console()->Chain("dbg_hook", ConchainUpdateDbgDummies, this);
+	Console()->Chain("dbg_walk", ConchainUpdateDbgDummies, this);
 #endif
 
 	// register console commands in sub parts
