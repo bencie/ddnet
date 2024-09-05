@@ -430,6 +430,9 @@ public:
 	static void ConchainConnLoggingServerChange(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 #endif
 
+#ifdef CONF_DEBUG
+	static void ConchainUpdateDbgDummies(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
+#endif
 	void RegisterCommands();
 
 	int SnapNewId() override;
