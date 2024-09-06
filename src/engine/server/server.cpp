@@ -2847,6 +2847,7 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 			mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
 			m_aClients[ClientId].m_LatestInput = m_aClients[ClientId].m_aInputs[0];
 			m_aClients[ClientId].m_CurrentInput = 0;
+			str_format(m_aClients[ClientId].m_aClan, sizeof(m_aClients[ClientId].m_aClan), "%s%s%s %s%s %d", g_Config.m_DbgDummiesDirection == -1 ? "<" : "", g_Config.m_DbgDummiesDirection == 1 ? ">" : "", g_Config.m_DbgDummiesJump ? "^" : "", g_Config.m_DbgDummiesHook ? "h" : "", g_Config.m_DbgDummiesFire ? "f" : "", g_Config.m_DbgDummiesWeapon);
 		}
 	}
 
