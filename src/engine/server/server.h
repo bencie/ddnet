@@ -88,6 +88,7 @@ class CServer : public IServer
 #ifdef CONF_DEBUG
 	int m_PreviousDebugDummies = 0;
 	void UpdateDebugDummies(bool ForceDisconnect);
+	void UpdateDebugDummiesInput();
 #endif
 
 public:
