@@ -2756,7 +2756,17 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 			DelClientCallback(ClientId, "Dropping debug dummy", this);
 		}
 
-		if(AddDummy && m_aClients[ClientId].m_DebugDummy)
+		UpdateDebugDummiesInput();
+	}
+
+	m_PreviousDebugDummies = ForceDisconnect ? 0 : g_Config.m_DbgDummies;
+}
+void CServer::UpdateDebugDummiesInput()
+{
+	for(int DummyIndex = 0; DummyIndex < maximum(m_PreviousDebugDummies, g_Config.m_DbgDummies); ++DummyIndex)
+	{
+		const int ClientId = MaxClients() - DummyIndex - 1;
+		if(m_aClients[ClientId].m_DebugDummy)
 		{
 			CNetObj_PlayerInput Input = {0};
 			Input.m_Fire = g_Config.m_DbgDummiesFire;
@@ -2765,7 +2775,7 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 			Input.m_TargetY = g_Config.m_DbgDummiesLookY;
 			Input.m_Jump = g_Config.m_DbgDummiesJump;
 			Input.m_Hook = g_Config.m_DbgDummiesHook;
-			Input.m_Direction =g_Config.m_DbgDummiesDirection;
+			Input.m_Direction = g_Config.m_DbgDummiesDirection;
 			m_aClients[ClientId].m_aInputs[0].m_GameTick = Tick() + 1;
 			mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
 			m_aClients[ClientId].m_LatestInput = m_aClients[ClientId].m_aInputs[0];
