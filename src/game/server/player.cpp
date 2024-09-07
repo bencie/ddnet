@@ -72,7 +72,7 @@ void CPlayer::Reset()
 		m_TimerType = (g_Config.m_SvDefaultTimerType == TIMERTYPE_GAMETIMER || g_Config.m_SvDefaultTimerType == TIMERTYPE_GAMETIMER_AND_BROADCAST) ? TIMERTYPE_BROADCAST : g_Config.m_SvDefaultTimerType;
 
 	m_DefEmote = EMOTE_NORMAL;
-	m_Afk = true;
+	m_Afk = false;
 	m_LastWhisperTo = -1;
 	m_LastSetSpectatorMode = 0;
 	m_aTimeoutCode[0] = '\0';
