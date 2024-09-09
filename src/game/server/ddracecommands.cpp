@@ -502,7 +502,6 @@ void CGameContext::ConTeleportAll(IConsole::IResult *pResult, void *pUserData)
 		{
 			pSelf->Teleport(pChr, Pos);
 			pChr->ResetJumps();
-			pChr->UnFreeze();
 			pChr->SetVelocity(vec2(0, 0));
 		}
 	}
