@@ -2862,16 +2862,20 @@ void CServer::UpdateDebugDummiesInput()
 			Input.m_Jump = g_Config.m_DbgDummiesJump;
 			Input.m_Hook = g_Config.m_DbgDummiesHook;
 			Input.m_Direction = g_Config.m_DbgDummiesDirection;
+			m_aClients[ClientId].m_Latency = DummyIndex + 1;
 			m_aClients[ClientId].m_aInputs[0].m_GameTick = Tick() + 1;
 			mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
 			m_aClients[ClientId].m_LatestInput = m_aClients[ClientId].m_aInputs[0];
 			m_aClients[ClientId].m_CurrentInput = 0;
 			str_format(m_aClients[ClientId].m_aClan, sizeof(m_aClients[ClientId].m_aClan), "%s%s%s %s%s %d", g_Config.m_DbgDummiesDirection == -1 ? "<" : "", g_Config.m_DbgDummiesDirection == 1 ? ">" : "", g_Config.m_DbgDummiesJump ? "^" : "", g_Config.m_DbgDummiesHook ? "h" : "", g_Config.m_DbgDummiesFire ? "f" : "", g_Config.m_DbgDummiesWeapon);
+
+			// dbg_copy_moves
 			if(g_Config.m_DbgDummiesCopyMoves != -1)
 			{
 			    mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &m_aClients[g_Config.m_DbgDummiesCopyMoves].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves].m_CurrentInput - 1].m_aData, minimum(sizeof(m_aClients[g_Config.m_DbgDummiesCopyMoves].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves].m_CurrentInput].m_aData), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
 			    m_aClients[ClientId].m_LatestInput = m_aClients[g_Config.m_DbgDummiesCopyMoves].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves].m_CurrentInput - 1];
 			}
+			// dbg_copy_moves2 to control half the debug dummies
 			if(g_Config.m_DbgDummiesCopyMoves2 != -1 && DummyIndex %2 == 0)
 			{
 				mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_CurrentInput - 1].m_aData, minimum(sizeof(m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_CurrentInput].m_aData), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
