@@ -2776,6 +2776,7 @@ void CServer::UpdateDebugDummiesInput()
 			Input.m_Jump = g_Config.m_DbgDummiesJump;
 			Input.m_Hook = g_Config.m_DbgDummiesHook;
 			Input.m_Direction = g_Config.m_DbgDummiesDirection;
+			m_aClients[ClientId].m_Latency = DummyIndex + 1;
 			m_aClients[ClientId].m_aInputs[0].m_GameTick = Tick() + 1;
 			mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
 			m_aClients[ClientId].m_LatestInput = m_aClients[ClientId].m_aInputs[0];
