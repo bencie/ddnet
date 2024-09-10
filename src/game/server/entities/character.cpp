@@ -1,6 +1,7 @@
 /* (c) Magnus Auvinen. See licence.txt in the root of the distribution for more information. */
 /* If you are missing that file, acquire a complete release at teeworlds.com.                */
 #include "character.h"
+#include "base/vmath.h"
 #include "laser.h"
 #include "pickup.h"
 #include "projectile.h"
@@ -725,6 +726,22 @@ void CCharacter::ResetInput()
 	m_LatestPrevInput = m_LatestInput = m_Input;
 }
 
+#ifdef CONF_DEBUG
+void CCharacter::SpiderHook()
+{
+    if(m_Core.m_HookState == HOOK_FLYING)
+    {
+		vec2 MousePos = vec2(m_Core.m_Input.m_TargetX + m_Pos.x, m_Core.m_Input.m_TargetY + m_Pos.y);
+        vec2 CollidePos;
+        bool IsColliding = Collision()->IntersectLine(m_Pos, MousePos, &CollidePos, NULL);
+        
+        m_Core.m_HookPos = IsColliding ? CollidePos : MousePos;
+        m_Core.m_TriggeredEvents |= COREEVENT_HOOK_ATTACH_GROUND;
+        m_Core.m_HookState = HOOK_GRABBED;
+    }
+}
+#endif
+
 void CCharacter::PreTick()
 {
 	if(m_StartTime > Server()->Tick())
@@ -774,6 +791,9 @@ void CCharacter::Tick()
 
 	// handle Weapons
 	HandleWeapons();
+	#ifdef CONF_DEBUG
+	SpiderHook();
+	#endif
 
 	DDRacePostCoreTick();
 
