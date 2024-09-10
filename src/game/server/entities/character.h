@@ -67,9 +67,7 @@ public:
 	void ResetInput();
 	void FireWeapon();
 
-	#ifdef CONF_DEBUG
 	void SpiderHook();
-	#endif
 
 	void Die(int Killer, int Weapon, bool SendKillMsg = true);
 	bool TakeDamage(vec2 Force, int Dmg, int From, int Weapon);
