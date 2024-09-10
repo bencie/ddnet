@@ -287,20 +287,19 @@ MACRO_CONFIG_INT(ClVideoX264Crf, cl_video_crf, 18, 0, 51, CFGFLAG_CLIENT | CFGFL
 MACRO_CONFIG_INT(ClVideoX264Preset, cl_video_preset, 5, 0, 9, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Set preset when encode video with libx264, default is 5 (medium), 0 is ultrafast, 9 is placebo (the slowest, not recommend)")
 
 // debug
-#ifdef CONF_DEBUG
-MACRO_CONFIG_INT(DbgDummies, dbg_dummies, 0, 0, MAX_CLIENTS, CFGFLAG_SERVER, "Add debug dummies to server (Debug build only)")
-MACRO_CONFIG_INT(DbgDummiesFire, dbg_fire, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +fire (Debug build only)")
-MACRO_CONFIG_INT(DbgDummiesWeapon, dbg_weapon, 0, 0, 5, CFGFLAG_SERVER, "Set weapon the debug dummies should hold (Debug build only)")
-MACRO_CONFIG_INT(DbgDummiesLookX, dbg_look_x, 0, -360, 360, CFGFLAG_SERVER, "Debug dummies X look direction (Debug build only)")
-MACRO_CONFIG_INT(DbgDummiesLookY, dbg_look_y, 0, -360, 360, CFGFLAG_SERVER, "Debug dummies Y look direction (Debug build only)")
-MACRO_CONFIG_INT(DbgDummiesJump, dbg_jump, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +jump (Debug build only)")
-MACRO_CONFIG_INT(DbgDummiesHook, dbg_hook, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +hook (Debug build only)")
-MACRO_CONFIG_INT(DbgDummiesDirection, dbg_walk, 0, -1, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +left=-1 / +right=1 (Debug build only)")
-MACRO_CONFIG_INT(DbgDummiesCopyMoves, dbg_copy_moves, -1, -1, MAX_CLIENTS, CFGFLAG_SERVER, "Whether debug dummies should copy player i's moves (Debug build only)")
-MACRO_CONFIG_INT(DbgDummiesCopyMoves2, dbg_copy_moves2, -1, -1, MAX_CLIENTS, CFGFLAG_SERVER, "Whether debug dummies should copy player i's moves (Debug build only)")
+MACRO_CONFIG_INT(DbgDummies, dbg_dummies, 0, 0, MAX_CLIENTS, CFGFLAG_SERVER, "Add debug dummies to server")
+MACRO_CONFIG_INT(DbgDummiesFire, dbg_fire, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +fire")
+MACRO_CONFIG_INT(DbgDummiesWeapon, dbg_weapon, 0, 0, 5, CFGFLAG_SERVER, "Set weapon the debug dummies should hold")
+MACRO_CONFIG_INT(DbgDummiesLookX, dbg_look_x, 0, -360, 360, CFGFLAG_SERVER, "Debug dummies X look direction")
+MACRO_CONFIG_INT(DbgDummiesLookY, dbg_look_y, 0, -360, 360, CFGFLAG_SERVER, "Debug dummies Y look direction")
+MACRO_CONFIG_INT(DbgDummiesJump, dbg_jump, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +jump")
+MACRO_CONFIG_INT(DbgDummiesHook, dbg_hook, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +hook")
+MACRO_CONFIG_INT(DbgDummiesDirection, dbg_walk, 0, -1, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +left=-1 / +right=1")
+MACRO_CONFIG_INT(DbgDummiesCopyMoves, dbg_copy_moves, -1, -1, MAX_CLIENTS, CFGFLAG_SERVER, "Whether debug dummies should copy player i's moves")
+MACRO_CONFIG_INT(DbgDummiesCopyMoves2, dbg_copy_moves2, -1, -1, MAX_CLIENTS, CFGFLAG_SERVER, "Whether half the debug dummies should copy player i's moves")
 
-MACRO_CONFIG_INT(SpiderHook, spiderhook, 0, 0, 1, CFGFLAG_SERVER, "Spider hook (Debug build only)")
-#endif
+MACRO_CONFIG_INT(SvAnnouncementSpeed, sv_announce_speed, -1, -1, 63, CFGFLAG_SERVER, "Broadcast speed of player i, -1=off")
+MACRO_CONFIG_INT(SpiderHook, spiderhook, 0, 0, 1, CFGFLAG_SERVER, "Spider hook")
 
 MACRO_CONFIG_INT(DbgTuning, dbg_tuning, 0, 0, 2, CFGFLAG_CLIENT, "Display information about the tuning parameters that affect the own player (0 = off, 1 = show changed, 2 = show all)")
 
@@ -498,7 +497,6 @@ MACRO_CONFIG_INT(DbgGfx, dbg_gfx, 0, 0, 4, CFGFLAG_CLIENT, "Show graphic library
 #ifdef CONF_DEBUG
 MACRO_CONFIG_INT(DbgStress, dbg_stress, 0, 0, 1, CFGFLAG_CLIENT, "Stress systems (Debug build only)")
 MACRO_CONFIG_STR(DbgStressServer, dbg_stress_server, 32, "localhost", CFGFLAG_CLIENT, "Server to stress (Debug build only)")
-MACRO_CONFIG_INT(SvAnnouncementSpeed, sv_announce_speed, -1, -1, 63, CFGFLAG_SERVER, "Broadcast speed of player i, -1=off (Debug build only)")
 #endif
 
 MACRO_CONFIG_INT(HttpAllowInsecure, http_allow_insecure, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SERVER, "Allow insecure HTTP protocol in addition to the secure HTTPS one. Mostly useful for testing.")

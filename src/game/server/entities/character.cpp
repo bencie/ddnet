@@ -742,7 +742,6 @@ void CCharacter::ResetInput()
 	m_LatestPrevInput = m_LatestInput = m_Input;
 }
 
-#ifdef CONF_DEBUG
 void CCharacter::SpiderHook()
 {
     if(m_Core.m_HookState == HOOK_FLYING)
@@ -756,7 +755,6 @@ void CCharacter::SpiderHook()
         m_Core.m_HookState = HOOK_GRABBED;
     }
 }
-#endif
 
 void CCharacter::PreTick()
 {
@@ -807,9 +805,7 @@ void CCharacter::Tick()
 
 	// handle Weapons
 	HandleWeapons();
-	#ifdef CONF_DEBUG
 	SpiderHook();
-	#endif
 
 	DDRacePostCoreTick();
 
