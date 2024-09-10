@@ -2790,7 +2790,6 @@ int CServer::LoadMap(const char *pMapName)
 	return 1;
 }
 
-#ifdef CONF_DEBUG
 void CServer::UpdateDebugDummies(bool ForceDisconnect)
 {
 	g_Config.m_DbgDummies = clamp(g_Config.m_DbgDummies, 0, MaxClients());
@@ -2875,7 +2874,6 @@ void CServer::UpdateDebugDummiesInput()
 		}
 	}
 }
-#endif
 
 int CServer::Run()
 {
@@ -3034,9 +3032,7 @@ int CServer::Run()
 						}
 					}
 
-#ifdef CONF_DEBUG
 					UpdateDebugDummies(true);
-#endif
 					GameServer()->OnShutdown(m_pPersistentData);
 
 					for(int ClientId = 0; ClientId < MAX_CLIENTS; ClientId++)
@@ -3089,9 +3085,7 @@ int CServer::Run()
 			{
 				GameServer()->OnPreTickTeehistorian();
 
-#ifdef CONF_DEBUG
 				UpdateDebugDummies(false);
-#endif
 
 				for(int c = 0; c < MAX_CLIENTS; c++)
 				{
@@ -4069,7 +4063,6 @@ void CServer::ConchainConnLoggingServerChange(IConsole::IResult *pResult, void *
 }
 #endif
 
-#ifdef CONF_DEBUG
 void CServer::ConchainUpdateDbgDummies(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
 {
 	pfnCallback(pResult, pCallbackUserData);
@@ -4079,7 +4072,6 @@ void CServer::ConchainUpdateDbgDummies(IConsole::IResult *pResult, void *pUserDa
 		pThis->UpdateDebugDummies(0);
 	}
 }
-#endif
 
 void CServer::RegisterCommands()
 {
@@ -4140,7 +4132,6 @@ void CServer::RegisterCommands()
 	Console()->Chain("sv_conn_logging_server", ConchainConnLoggingServerChange, this);
 #endif
 
-#ifdef CONF_DEBUG
 	Console()->Chain("dbg_fire", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_weapon", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_look_x", ConchainUpdateDbgDummies, this);
@@ -4149,7 +4140,6 @@ void CServer::RegisterCommands()
 	Console()->Chain("dbg_hook", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_walk", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_copy_moves", ConchainUpdateDbgDummies, this);
-#endif
 
 	// register console commands in sub parts
 	m_ServerBan.InitServerBan(Console(), Storage(), this);

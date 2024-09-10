@@ -85,11 +85,9 @@ class CServer : public IServer
 
 	class CDbConnectionPool *m_pConnectionPool;
 
-#ifdef CONF_DEBUG
 	int m_PreviousDebugDummies = 0;
 	void UpdateDebugDummies(bool ForceDisconnect);
 	void UpdateDebugDummiesInput();
-#endif
 
 public:
 	class IGameServer *GameServer() { return m_pGameServer; }
@@ -469,9 +467,7 @@ public:
 	static void ConchainConnLoggingServerChange(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 #endif
 
-#ifdef CONF_DEBUG
 	static void ConchainUpdateDbgDummies(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
-#endif
 	void RegisterCommands();
 
 	int SnapNewId() override;
