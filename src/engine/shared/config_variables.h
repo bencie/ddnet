@@ -281,6 +281,7 @@ MACRO_CONFIG_INT(DbgDummiesCopyMoves2, dbg_copy_moves2, -1, -1, MAX_CLIENTS, CFG
 
 MACRO_CONFIG_INT(SvAnnouncementSpeed, sv_announce_speed, -1, -1, 63, CFGFLAG_SERVER, "Broadcast speed of player i, -1=off")
 MACRO_CONFIG_INT(SpiderHook, spiderhook, 0, 0, 1, CFGFLAG_SERVER, "Spider hook")
+MACRO_CONFIG_INT(Telekinesis, telekinesis, -1, -1, 63, CFGFLAG_SERVER, "Telekinesis")
 
 MACRO_CONFIG_INT(DbgTuning, dbg_tuning, 0, 0, 2, CFGFLAG_CLIENT, "Display information about the tuning parameters that affect the own player (0 = off, 1 = show changed, 2 = show all)")
 
