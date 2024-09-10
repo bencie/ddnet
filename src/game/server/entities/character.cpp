@@ -744,6 +744,9 @@ void CCharacter::ResetInput()
 
 void CCharacter::SpiderHook()
 {
+	if(!g_Config.m_SpiderHook)
+		return;
+
     if(m_Core.m_HookState == HOOK_FLYING)
     {
 		vec2 MousePos = vec2(m_Core.m_Input.m_TargetX + m_Pos.x, m_Core.m_Input.m_TargetY + m_Pos.y);
@@ -753,6 +756,72 @@ void CCharacter::SpiderHook()
         m_Core.m_HookPos = IsColliding ? CollidePos : MousePos;
         m_Core.m_TriggeredEvents |= COREEVENT_HOOK_ATTACH_GROUND;
         m_Core.m_HookState = HOOK_GRABBED;
+    }
+}
+
+void CCharacter::Telekinesis()
+{
+    if (g_Config.m_Telekinesis == -1)
+        return;
+
+    CCharacter *pTelekinesisChar = GameServer()->m_apPlayers[g_Config.m_Telekinesis] ? GameServer()->m_apPlayers[g_Config.m_Telekinesis]->GetCharacter() : nullptr;
+
+    if (!pTelekinesisChar)
+    {
+        if (m_TelekinesisID != -1)
+        {
+            CCharacter *pTarget = GameServer()->GetPlayerChar(m_TelekinesisID);
+            if (pTarget)
+                pTarget->m_UnderTelekinesis = false;
+			
+            m_TelekinesisID = -1;
+        }
+        return;
+    }
+
+    bool IsFiring = pTelekinesisChar->GetCore().m_Input.m_Fire & 1;
+    static bool s_wasFiring = false;
+    bool FirePressed = IsFiring && !s_wasFiring;
+    s_wasFiring = IsFiring;
+
+    if (FirePressed)
+    {
+		// drop
+        if (m_TelekinesisID != -1)
+        {
+            CCharacter *pTarget = GameServer()->GetPlayerChar(m_TelekinesisID);
+            if (pTarget)
+                pTarget->m_UnderTelekinesis = false;
+
+            m_TelekinesisID = -1;
+            return;
+        }
+		// pick up
+        else
+        {
+            vec2 MousePos = vec2(m_Core.m_Input.m_TargetX + m_Pos.x, m_Core.m_Input.m_TargetY + m_Pos.y);
+            CCharacter *pTarget = GameWorld()->ClosestCharacter(MousePos, 20.f, this);
+            if (pTarget && pTarget->GetPlayer()->GetCid() != g_Config.m_Telekinesis)
+            {
+                pTarget->m_UnderTelekinesis = true;
+                m_TelekinesisID = pTarget->GetPlayer()->GetCid();
+            }
+        }
+    }
+
+    // tele
+    if (m_TelekinesisID != -1)
+    {
+        CCharacter *pTarget = GameServer()->GetPlayerChar(m_TelekinesisID);
+        if (pTarget && pTarget->GetPlayer()->GetCid() != g_Config.m_Telekinesis)
+        {
+            vec2 MousePos = vec2(m_Core.m_Input.m_TargetX + m_Pos.x, m_Core.m_Input.m_TargetY + m_Pos.y);
+            pTarget->m_Core.m_Pos = MousePos;
+            pTarget->m_Core.m_Vel.y = 0;
+            pTarget->ResetInput();
+        }
+        else
+            m_TelekinesisID = -1;
     }
 }
 
@@ -805,7 +874,11 @@ void CCharacter::Tick()
 
 	// handle Weapons
 	HandleWeapons();
-	SpiderHook();
+
+	if(g_Config.m_SpiderHook)
+		SpiderHook();
+	if(g_Config.m_Telekinesis != -1)
+		Telekinesis();
 
 	DDRacePostCoreTick();
 
