@@ -297,6 +297,8 @@ MACRO_CONFIG_INT(DbgDummiesHook, dbg_hook, 0, 0, 1, CFGFLAG_SERVER, "Whether deb
 MACRO_CONFIG_INT(DbgDummiesDirection, dbg_walk, 0, -1, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +left=-1 / +right=1 (Debug build only)")
 MACRO_CONFIG_INT(DbgDummiesCopyMoves, dbg_copy_moves, -1, -1, MAX_CLIENTS, CFGFLAG_SERVER, "Whether debug dummies should copy player i's moves (Debug build only)")
 MACRO_CONFIG_INT(DbgDummiesCopyMoves2, dbg_copy_moves2, -1, -1, MAX_CLIENTS, CFGFLAG_SERVER, "Whether debug dummies should copy player i's moves (Debug build only)")
+
+MACRO_CONFIG_INT(SpiderHook, spiderhook, 0, 0, 1, CFGFLAG_SERVER, "Spider hook (Debug build only)")
 #endif
 
 MACRO_CONFIG_INT(DbgTuning, dbg_tuning, 0, 0, 2, CFGFLAG_CLIENT, "Display information about the tuning parameters that affect the own player (0 = off, 1 = show changed, 2 = show all)")
