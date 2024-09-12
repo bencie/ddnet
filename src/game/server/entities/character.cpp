@@ -63,6 +63,7 @@ bool CCharacter::Spawn(CPlayer *pPlayer, vec2 Pos)
 	m_LastRefillJumps = false;
 	m_LastPenalty = false;
 	m_LastBonus = false;
+	m_TelekinesisID = -1;
 
 	m_TeleGunTeleport = false;
 	m_IsBlueTeleGunTeleport = false;
