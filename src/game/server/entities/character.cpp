@@ -784,6 +784,9 @@ void CCharacter::Telekinesis()
     static bool s_wasFiring = false;
     bool FirePressed = IsFiring && !s_wasFiring;
     s_wasFiring = IsFiring;
+	vec2 MousePos = vec2(m_Core.m_Input.m_TargetX + m_Pos.x, m_Core.m_Input.m_TargetY + m_Pos.y);
+    vec2 MouseDelta = MousePos - m_TelekinesisVelocity;
+    m_TelekinesisVelocity = MousePos;
 
     if (FirePressed)
     {
@@ -792,7 +795,10 @@ void CCharacter::Telekinesis()
         {
             CCharacter *pTarget = GameServer()->GetPlayerChar(m_TelekinesisID);
             if (pTarget)
+			{
+				pTarget->m_Core.m_Vel += MouseDelta * 0.5f;
                 pTarget->m_UnderTelekinesis = false;
+			}
 
             m_TelekinesisID = -1;
             return;
@@ -800,12 +806,12 @@ void CCharacter::Telekinesis()
 		// pick up
         else
         {
-            vec2 MousePos = vec2(m_Core.m_Input.m_TargetX + m_Pos.x, m_Core.m_Input.m_TargetY + m_Pos.y);
             CCharacter *pTarget = GameWorld()->ClosestCharacter(MousePos, 20.f, this);
             if (pTarget && pTarget->GetPlayer()->GetCid() != g_Config.m_Telekinesis)
             {
                 pTarget->m_UnderTelekinesis = true;
                 m_TelekinesisID = pTarget->GetPlayer()->GetCid();
+				m_TelekinesisVelocity = MousePos;
             }
         }
     }
@@ -816,7 +822,6 @@ void CCharacter::Telekinesis()
         CCharacter *pTarget = GameServer()->GetPlayerChar(m_TelekinesisID);
         if (pTarget && pTarget->GetPlayer()->GetCid() != g_Config.m_Telekinesis)
         {
-            vec2 MousePos = vec2(m_Core.m_Input.m_TargetX + m_Pos.x, m_Core.m_Input.m_TargetY + m_Pos.y);
             pTarget->m_Core.m_Pos = MousePos;
             pTarget->m_Core.m_Vel.y = 0;
             pTarget->ResetInput();
