@@ -71,6 +71,7 @@ public:
 	void Telekinesis();
     int m_TelekinesisID;
     bool m_UnderTelekinesis;
+	vec2 m_TelekinesisVelocity;
 
 	void Die(int Killer, int Weapon, bool SendKillMsg = true);
 	bool TakeDamage(vec2 Force, int Dmg, int From, int Weapon);
