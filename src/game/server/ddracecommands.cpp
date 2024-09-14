@@ -56,7 +56,7 @@ void CGameContext::ConGoUp(IConsole::IResult *pResult, void *pUserData)
 
 void CGameContext::ConSetVel(IConsole::IResult *pResult, void *pUserData)
 {
-		if (pResult->NumArguments() != 3)
+	if(pResult->NumArguments() != 3)
 		return;
 
 	CGameContext *pSelf = (CGameContext *)pUserData;
@@ -70,7 +70,7 @@ void CGameContext::ConSetVel(IConsole::IResult *pResult, void *pUserData)
 		return;
 
 	if(pSelf->m_apPlayers[Victim])
-		pSelf->m_apPlayers[Victim]->GetCharacter()->SetVelocity(vec2(velX,velY));
+		pSelf->m_apPlayers[Victim]->GetCharacter()->SetVelocity(vec2(velX, velY));
 }
 
 void CGameContext::ConMove(IConsole::IResult *pResult, void *pUserData)
@@ -486,12 +486,12 @@ void CGameContext::ConTeleportAll(IConsole::IResult *pResult, void *pUserData)
 	}
 
 	CCharacter *pTargetChr = pSelf->GetPlayerChar(TeleTo);
-	if (!pTargetChr)
+	if(!pTargetChr)
 	{
 		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tele", "target player not found");
 		return;
 	}
-	
+
 	vec2 Pos = pTargetChr->m_Pos;
 
 	for(int i = 0; i < MAX_CLIENTS; i++)
@@ -506,7 +506,6 @@ void CGameContext::ConTeleportAll(IConsole::IResult *pResult, void *pUserData)
 		}
 	}
 }
-
 
 void CGameContext::ConKill(IConsole::IResult *pResult, void *pUserData)
 {
