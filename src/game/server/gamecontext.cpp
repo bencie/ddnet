@@ -1012,23 +1012,24 @@ void CGameContext::OnPreTickTeehistorian()
 
 void CGameContext::OnTick()
 {
-    // speed y
-    if(g_Config.m_SvAnnouncementSpeed >= 0)
-    {
-        CPlayer *pPlayer = m_apPlayers[g_Config.m_SvAnnouncementSpeed];
-        if(pPlayer && pPlayer->GetCharacter())
-        {
-            CCharacter *pChr = pPlayer->GetCharacter();
-            float VelspeedY = pChr->GetCore().m_Vel.y * 50 / 32;
+	// speed y
+	if(g_Config.m_SvAnnouncementSpeed >= 0)
+	{
+		CPlayer *pPlayer = m_apPlayers[g_Config.m_SvAnnouncementSpeed];
+		if(pPlayer && pPlayer->GetCharacter())
+		{
+			CCharacter *pChr = pPlayer->GetCharacter();
+			float VelspeedY = pChr->GetCore().m_Vel.y * 50 / 32;
 			float VelspeedX = pChr->GetCore().m_Vel.x * 50 / 32;
 
-            if (VelspeedY != 0 || (VelspeedX < -0.02 || VelspeedX > 0.02)) {
-                char aBuf[256];
-                str_format(aBuf, sizeof(aBuf), "X: %.2f | Y: %.2f", VelspeedX, VelspeedY);
-                SendBroadcast(aBuf, -1);
-            }
-        }
-    }
+			if(VelspeedY != 0 || (VelspeedX < -0.02 || VelspeedX > 0.02))
+			{
+				char aBuf[256];
+				str_format(aBuf, sizeof(aBuf), "X: %.2f | Y: %.2f", VelspeedX, VelspeedY);
+				SendBroadcast(aBuf, -1);
+			}
+		}
+	}
 	// check tuning
 	CheckPureTuning();
 

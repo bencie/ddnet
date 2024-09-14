@@ -2659,6 +2659,7 @@ void CServer::UpdateDebugDummiesInput()
 	for(int DummyIndex = 0; DummyIndex < maximum(m_PreviousDebugDummies, g_Config.m_DbgDummies); ++DummyIndex)
 	{
 		const int ClientId = MaxClients() - DummyIndex - 1;
+		CClient *pClient = &m_aClients[ClientId];
 		if(m_aClients[ClientId].m_DebugDummy)
 		{
 			CNetObj_PlayerInput Input = {0};
@@ -2669,25 +2670,29 @@ void CServer::UpdateDebugDummiesInput()
 			Input.m_Jump = g_Config.m_DbgDummiesJump;
 			Input.m_Hook = g_Config.m_DbgDummiesHook;
 			Input.m_Direction = g_Config.m_DbgDummiesDirection;
-			m_aClients[ClientId].m_Latency = DummyIndex + 1;
-			m_aClients[ClientId].m_aInputs[0].m_GameTick = Tick() + 1;
-			mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
-			m_aClients[ClientId].m_LatestInput = m_aClients[ClientId].m_aInputs[0];
-			m_aClients[ClientId].m_CurrentInput = 0;
-			str_format(m_aClients[ClientId].m_aClan, sizeof(m_aClients[ClientId].m_aClan), "%s%s%s %s%s %d", g_Config.m_DbgDummiesDirection == -1 ? "<" : "", g_Config.m_DbgDummiesDirection == 1 ? ">" : "", g_Config.m_DbgDummiesJump ? "^" : "", g_Config.m_DbgDummiesHook ? "h" : "", g_Config.m_DbgDummiesFire ? "f" : "", g_Config.m_DbgDummiesWeapon);
+			pClient->m_Latency = DummyIndex + 1;
+			pClient->m_aInputs[0].m_GameTick = Tick() + 1;
+			mem_copy(pClient->m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(pClient->m_aInputs[0].m_aData)));
+			pClient->m_LatestInput = pClient->m_aInputs[0];
+			pClient->m_CurrentInput = 0;
+			str_format(pClient->m_aClan, sizeof(pClient->m_aClan), "%s%s%s %s%s %d", g_Config.m_DbgDummiesDirection == -1 ? "<" : "", g_Config.m_DbgDummiesDirection == 1 ? ">" : "", g_Config.m_DbgDummiesJump ? "^" : "", g_Config.m_DbgDummiesHook ? "h" : "", g_Config.m_DbgDummiesFire ? "f" : "", g_Config.m_DbgDummiesWeapon);
 
 			// dbg_copy_moves
 			if(g_Config.m_DbgDummiesCopyMoves != -1)
 			{
-			    mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &m_aClients[g_Config.m_DbgDummiesCopyMoves].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves].m_CurrentInput - 1].m_aData, minimum(sizeof(m_aClients[g_Config.m_DbgDummiesCopyMoves].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves].m_CurrentInput].m_aData), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
-			    m_aClients[ClientId].m_LatestInput = m_aClients[g_Config.m_DbgDummiesCopyMoves].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves].m_CurrentInput - 1];
+				int InputDelayTick = g_Config.m_DbgDummiesLatency ? ((m_aClients[g_Config.m_DbgDummiesCopyMoves].m_CurrentInput - 1 - DummyIndex + 200) % 200) : m_aClients[g_Config.m_DbgDummiesCopyMoves].m_CurrentInput - 1;
+				mem_copy(pClient->m_aInputs[0].m_aData, &m_aClients[g_Config.m_DbgDummiesCopyMoves].m_aInputs[InputDelayTick].m_aData, minimum(sizeof(m_aClients[g_Config.m_DbgDummiesCopyMoves].m_aInputs[InputDelayTick].m_aData), sizeof(pClient->m_aInputs[0].m_aData)));
+				pClient->m_LatestInput = m_aClients[g_Config.m_DbgDummiesCopyMoves].m_aInputs[InputDelayTick];
 			}
+
 			// dbg_copy_moves2 to control half the debug dummies
-			if(g_Config.m_DbgDummiesCopyMoves2 != -1 && DummyIndex %2 == 0)
+			if(g_Config.m_DbgDummiesCopyMoves2 != -1 && DummyIndex % 2 == 0)
 			{
-				mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_CurrentInput - 1].m_aData, minimum(sizeof(m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_CurrentInput].m_aData), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
-			    m_aClients[ClientId].m_LatestInput = m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_CurrentInput - 1];
+				int InputDelayTick2 = g_Config.m_DbgDummiesLatency ? ((m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_CurrentInput - 1 - DummyIndex + 200) % 200) : m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_CurrentInput - 1;
+				mem_copy(pClient->m_aInputs[0].m_aData, &m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[InputDelayTick2].m_aData, minimum(sizeof(m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[InputDelayTick2].m_aData),  sizeof(pClient->m_aInputs[0].m_aData)));
+				pClient->m_LatestInput = m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[InputDelayTick2];
 			}
+
 		}
 	}
 }
