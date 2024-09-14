@@ -5056,6 +5056,30 @@ void CGameContext::SetSkinTo(int Target, int To)
 	}
 }
 
+void CGameContext::GiveWeaponTo(int Weapon, int ClientId)
+{
+	CPlayer *pPlayer = m_apPlayers[ClientId];
+	CCharacter *pChr = pPlayer->GetCharacter();
+	if(Weapon > 2 && pChr)
+	{
+		switch(Weapon)
+		{
+			case 3:
+				pChr->GiveWeapon(WEAPON_SHOTGUN);
+				break;
+			case 4:
+				pChr->GiveWeapon(WEAPON_GRENADE);
+				break;
+			case 5:
+				pChr->GiveWeapon(WEAPON_LASER);
+				break;
+			case 6:
+				pChr->GiveWeapon(WEAPON_NINJA);
+				break;
+		}
+	}
+}
+
 bool CGameContext::PracticeByDefault() const
 {
 	return g_Config.m_SvPracticeByDefault && g_Config.m_SvTestingCommands;

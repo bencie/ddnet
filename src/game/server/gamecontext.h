@@ -360,6 +360,7 @@ public:
 
 	void OnUpdatePlayerServerInfo(CJsonStringWriter *pJSonWriter, int Id) override;
 	void SetSkinTo(int Target, int To) override;
+	void GiveWeaponTo(int Weapon, int ClientId) override;
 
 	bool PracticeByDefault() const;
 

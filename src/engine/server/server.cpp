@@ -2722,7 +2722,6 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 	{
 		const bool AddDummy = !ForceDisconnect && DummyIndex < g_Config.m_DbgDummies;
 		const int ClientId = MaxClients() - DummyIndex - 1;
-		CCharacter *pChar = ((CGameContext*)m_pGameServer)->GetPlayerChar(ClientId);
 		if(AddDummy && m_aClients[ClientId].m_State == CClient::STATE_EMPTY)
 		{
 			NewClientCallback(ClientId, this, false);
@@ -2757,22 +2756,6 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 			DelClientCallback(ClientId, "Dropping debug dummy", this);
 		}
 
-		switch(g_Config.m_DbgDummiesWeapon)
-		{
-			case 3:
-				pChar->GiveWeapon(WEAPON_SHOTGUN, 0);
-				break;
-			case 4:
-				pChar->GiveWeapon(WEAPON_GRENADE, 0);
-				break;
-			case 5:
-				pChar->GiveWeapon(WEAPON_LASER, 0);
-				break;
-			case 6:
-				pChar->GiveWeapon(WEAPON_NINJA, 0);
-				break;
-		}
-
 		UpdateDebugDummiesInput();
 	}
 
@@ -2800,10 +2783,10 @@ void CServer::UpdateDebugDummiesInput()
 			pClient->m_LatestInput = pClient->m_aInputs[0];
 			pClient->m_CurrentInput = 0;
 			str_format(pClient->m_aClan, sizeof(pClient->m_aClan), "%s%s%s %s%s %d", g_Config.m_DbgDummiesDirection == -1 ? "<" : "", g_Config.m_DbgDummiesDirection == 1 ? ">" : "", g_Config.m_DbgDummiesJump ? "^" : "", g_Config.m_DbgDummiesHook ? "h" : "", g_Config.m_DbgDummiesFire ? "f" : "", g_Config.m_DbgDummiesWeapon);
+			m_pGameServer->GiveWeaponTo(g_Config.m_DbgDummiesWeapon, ClientId);
+			m_pGameServer->SetSkinTo(ClientId, -1);
 
 			// dbg_copy_moves
-
-			m_pGameServer->SetSkinTo(ClientId, -1);
 
 			if(g_Config.m_DbgDummiesCopyMoves != -1 && m_aClients[g_Config.m_DbgDummiesCopyMoves].m_State == CClient::STATE_INGAME)
 			{
@@ -4051,7 +4034,7 @@ void CServer::ConchainUpdateDbgDummies(IConsole::IResult *pResult, void *pUserDa
 	if(pResult->NumArguments())
 	{
 		CServer *pThis = static_cast<CServer *>(pUserData);
-		pThis->UpdateDebugDummies(0);
+		pThis->UpdateDebugDummies(false);
 	}
 }
 
@@ -4116,13 +4099,13 @@ void CServer::RegisterCommands()
 #endif
 
 	Console()->Chain("dbg_fire", ConchainUpdateDbgDummies, this);
-	Console()->Chain("dbg_weapon", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_look_x", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_look_y", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_jump", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_hook", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_walk", ConchainUpdateDbgDummies, this);
 	Console()->Chain("dbg_copy_moves", ConchainUpdateDbgDummies, this);
+	Console()->Chain("dbg_weapon", ConchainUpdateDbgDummies, this);
 
 	// register console commands in sub parts
 	m_ServerBan.InitServerBan(Console(), Storage(), this);

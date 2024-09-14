@@ -374,6 +374,7 @@ public:
 	 */
 	virtual void OnUpdatePlayerServerInfo(CJsonStringWriter *pJSonWriter, int Id) = 0;
 	virtual void SetSkinTo(int Target, int To) = 0;
+	virtual void GiveWeaponTo(int Weapon, int ClientId) = 0;
 };
 
 extern IGameServer *CreateGameServer();

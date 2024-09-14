@@ -289,7 +289,7 @@ MACRO_CONFIG_INT(ClVideoX264Preset, cl_video_preset, 5, 0, 9, CFGFLAG_CLIENT | C
 // debug
 MACRO_CONFIG_INT(DbgDummies, dbg_dummies, 0, 0, MAX_CLIENTS, CFGFLAG_SERVER, "Add debug dummies to server")
 MACRO_CONFIG_INT(DbgDummiesFire, dbg_fire, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +fire")
-MACRO_CONFIG_INT(DbgDummiesWeapon, dbg_weapon, 0, 0, 5, CFGFLAG_SERVER, "Set weapon the debug dummies should hold")
+MACRO_CONFIG_INT(DbgDummiesWeapon, dbg_weapon, 0, 0, 5, CFGFLAG_SERVER, "Set weapon the debug dummies should hold (1=hammer, 2=pistol, 3=shotgun, 4=grenade, 5=laser)")
 MACRO_CONFIG_INT(DbgDummiesLookX, dbg_look_x, 0, -360, 360, CFGFLAG_SERVER, "Debug dummies X look direction")
 MACRO_CONFIG_INT(DbgDummiesLookY, dbg_look_y, 0, -360, 360, CFGFLAG_SERVER, "Debug dummies Y look direction")
 MACRO_CONFIG_INT(DbgDummiesJump, dbg_jump, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +jump")
