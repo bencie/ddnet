@@ -131,7 +131,7 @@ protected:
 	private:
 		enum
 		{
-			MAX_BANS = 2048,
+			MAX_BANS = 65536,
 		};
 
 		CBan<CDataType> *m_aapHashList[HashCount][256];
