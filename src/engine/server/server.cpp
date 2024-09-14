@@ -2722,7 +2722,6 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 	{
 		const bool AddDummy = !ForceDisconnect && DummyIndex < g_Config.m_DbgDummies;
 		const int ClientId = MaxClients() - DummyIndex - 1;
-		CCharacter *pChar = ((CGameContext*)m_pGameServer)->GetPlayerChar(ClientId);
 		if(AddDummy && m_aClients[ClientId].m_State == CClient::STATE_EMPTY)
 		{
 			NewClientCallback(ClientId, this, false);
@@ -2755,22 +2754,6 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 		else if(!AddDummy && Client.m_DebugDummy)
 		{
 			DelClientCallback(ClientId, "Dropping debug dummy", this);
-		}
-
-		switch(g_Config.m_DbgDummiesWeapon)
-		{
-			case 3:
-				pChar->GiveWeapon(WEAPON_SHOTGUN, 0);
-				break;
-			case 4:
-				pChar->GiveWeapon(WEAPON_GRENADE, 0);
-				break;
-			case 5:
-				pChar->GiveWeapon(WEAPON_LASER, 0);
-				break;
-			case 6:
-				pChar->GiveWeapon(WEAPON_NINJA, 0);
-				break;
 		}
 
 		UpdateDebugDummiesInput();
