@@ -487,12 +487,12 @@ void CGameContext::ConTeleportAll(IConsole::IResult *pResult, void *pUserData)
 	}
 
 	CCharacter *pTargetChr = pSelf->GetPlayerChar(TeleTo);
-	if (!pTargetChr)
+	if(!pTargetChr)
 	{
 		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tele", "target player not found");
 		return;
 	}
-	
+
 	vec2 Pos = pTargetChr->m_Pos;
 
 	for(int i = 0; i < MAX_CLIENTS; i++)
@@ -507,7 +507,6 @@ void CGameContext::ConTeleportAll(IConsole::IResult *pResult, void *pUserData)
 		}
 	}
 }
-
 
 void CGameContext::ConKill(IConsole::IResult *pResult, void *pUserData)
 {

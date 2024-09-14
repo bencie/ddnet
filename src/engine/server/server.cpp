@@ -2766,6 +2766,7 @@ void CServer::UpdateDebugDummiesInput()
 	for(int DummyIndex = 0; DummyIndex < maximum(m_PreviousDebugDummies, g_Config.m_DbgDummies); ++DummyIndex)
 	{
 		const int ClientId = MaxClients() - DummyIndex - 1;
+		CClient *pClient = &m_aClients[ClientId];
 		if(m_aClients[ClientId].m_DebugDummy)
 		{
 			CNetObj_PlayerInput Input = {0};
@@ -2830,6 +2831,7 @@ void CServer::UpdateDebugDummiesInput()
 				pClient->m_LatestInput = m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[InputDelayTick2];
 				m_pGameServer->SetSkinTo(ClientId, g_Config.m_DbgDummiesCopyMoves2);
 			}
+
 		}
 	}
 }
