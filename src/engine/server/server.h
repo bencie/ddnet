@@ -386,6 +386,7 @@ public:
 	void StopRecord(int ClientId) override;
 	bool IsRecording(int ClientId) override;
 	void StopDemos() override;
+	bool IsDebug(int ClientId) override;
 
 	int Run();
 

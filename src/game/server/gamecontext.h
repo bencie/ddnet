@@ -363,6 +363,7 @@ public:
 	bool RateLimitPlayerMapVote(int ClientId) const;
 
 	void OnUpdatePlayerServerInfo(CJsonStringWriter *pJSonWriter, int Id) override;
+	void SetSkinTo(int Target, int To) override;
 
 	std::shared_ptr<CScoreRandomMapResult> m_SqlRandomMapResult;
 

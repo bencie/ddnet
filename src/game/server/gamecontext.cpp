@@ -5009,3 +5009,22 @@ void CGameContext::OnUpdatePlayerServerInfo(CJsonStringWriter *pJSonWriter, int 
 	pJSonWriter->WriteAttribute("team");
 	pJSonWriter->WriteIntValue(Team);
 }
+
+void CGameContext::SetSkinTo(int Target, int To)
+{
+	if(To != -1)
+	{
+		CPlayer *pDummy = m_apPlayers[Target];
+		CPlayer *pPlayer = m_apPlayers[To];
+		str_copy(pDummy->m_TeeInfos.m_aSkinName, pPlayer->m_TeeInfos.m_aSkinName, sizeof(pDummy->m_TeeInfos.m_aSkinName));
+		pDummy->m_TeeInfos.m_UseCustomColor = pPlayer->m_TeeInfos.m_UseCustomColor;
+		pDummy->m_TeeInfos.m_ColorBody = pPlayer->m_TeeInfos.m_ColorBody;
+		pDummy->m_TeeInfos.m_ColorFeet = pPlayer->m_TeeInfos.m_ColorFeet;
+	}
+	else
+	{
+		CPlayer *pDummy = m_apPlayers[Target];
+		str_copy(pDummy->m_TeeInfos.m_aSkinName, "default", sizeof(pDummy->m_TeeInfos.m_aSkinName));
+		pDummy->m_TeeInfos.m_UseCustomColor = false;
+	}
+}
