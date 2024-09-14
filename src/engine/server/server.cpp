@@ -2831,7 +2831,6 @@ void CServer::UpdateDebugDummiesInput()
 				pClient->m_LatestInput = m_aClients[g_Config.m_DbgDummiesCopyMoves2].m_aInputs[InputDelayTick2];
 				m_pGameServer->SetSkinTo(ClientId, g_Config.m_DbgDummiesCopyMoves2);
 			}
-
 		}
 	}
 }
