@@ -73,8 +73,8 @@ public:
 
 	void SpiderHook();
 	void Telekinesis();
-    int m_TelekinesisID;
-    bool m_UnderTelekinesis;
+	int m_TelekinesisID;
+	bool m_UnderTelekinesis;
 	vec2 m_TelekinesisVelocity;
 
 	void Die(int Killer, int Weapon, bool SendKillMsg = true);

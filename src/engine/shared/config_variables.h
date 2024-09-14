@@ -297,6 +297,7 @@ MACRO_CONFIG_INT(DbgDummiesHook, dbg_hook, 0, 0, 1, CFGFLAG_SERVER, "Whether deb
 MACRO_CONFIG_INT(DbgDummiesDirection, dbg_walk, 0, -1, 1, CFGFLAG_SERVER, "Whether debug dummies should hold +left=-1 / +right=1")
 MACRO_CONFIG_INT(DbgDummiesCopyMoves, dbg_copy_moves, -1, -1, MAX_CLIENTS, CFGFLAG_SERVER, "Whether debug dummies should copy player i's moves")
 MACRO_CONFIG_INT(DbgDummiesCopyMoves2, dbg_copy_moves2, -1, -1, MAX_CLIENTS, CFGFLAG_SERVER, "Whether half the debug dummies should copy player i's moves")
+MACRO_CONFIG_INT(DbgDummiesLatency, dbg_latency, 0, 0, 1, CFGFLAG_SERVER, "Whether debug dummies should copy moves after a delay with dbg_copy_moves")
 
 MACRO_CONFIG_INT(SvAnnouncementSpeed, sv_announce_speed, -1, -1, 63, CFGFLAG_SERVER, "Broadcast speed of player i, -1=off")
 MACRO_CONFIG_INT(SpiderHook, spiderhook, 0, 0, 1, CFGFLAG_SERVER, "Spider hook")
