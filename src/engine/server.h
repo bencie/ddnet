@@ -268,6 +268,7 @@ public:
 	virtual void StopRecord(int ClientId) = 0;
 	virtual bool IsRecording(int ClientId) = 0;
 	virtual void StopDemos() = 0;
+	virtual bool IsDebug(int ClientId) = 0;
 
 	virtual int *GetIdMap(int ClientId) = 0;
 
@@ -372,6 +373,7 @@ public:
 	 * @param i The client id.
 	 */
 	virtual void OnUpdatePlayerServerInfo(CJsonStringWriter *pJSonWriter, int Id) = 0;
+	virtual void SetSkinTo(int Target, int To) = 0;
 };
 
 extern IGameServer *CreateGameServer();
