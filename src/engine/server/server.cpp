@@ -1432,110 +1432,22 @@ int CServer::NumRconCommands(int ClientId)
 
 void CServer::UpdateClientRconCommands(int ClientId)
 {
-	CClient &Client = m_aClients[ClientId];
-	if(Client.m_State != CClient::STATE_INGAME ||
-		!Client.m_Authed ||
-		Client.m_pRconCmdToSend == nullptr)
+	for(int ClientId = 0; ClientId < MAX_CLIENTS; ClientId++)
 	{
-		return;
-	}
-
-	const int ConsoleAccessLevel = Client.ConsoleAccessLevel();
-	for(int i = 0; i < MAX_RCONCMD_SEND && Client.m_pRconCmdToSend; ++i)
-	{
-		SendRconCmdAdd(Client.m_pRconCmdToSend, ClientId);
-		Client.m_pRconCmdToSend = Client.m_pRconCmdToSend->NextCommandInfo(ConsoleAccessLevel, CFGFLAG_SERVER);
-		if(Client.m_pRconCmdToSend == nullptr)
+		if(m_aClients[ClientId].m_State != CClient::STATE_EMPTY && m_aClients[ClientId].m_Authed)
 		{
-			SendRconCmdGroupEnd(ClientId);
-		}
-	}
-}
-
-CServer::CMaplistEntry::CMaplistEntry(const char *pName)
-{
-	str_copy(m_aName, pName);
-}
-
-bool CServer::CMaplistEntry::operator<(const CMaplistEntry &Other) const
-{
-	return str_comp_filenames(m_aName, Other.m_aName) < 0;
-}
-
-void CServer::SendMaplistGroupStart(int ClientId)
-{
-	CMsgPacker Msg(NETMSG_MAPLIST_GROUP_START, true);
-	Msg.AddInt(m_vMaplistEntries.size());
-	SendMsg(&Msg, MSGFLAG_VITAL, ClientId);
-}
-
-void CServer::SendMaplistGroupEnd(int ClientId)
-{
-	CMsgPacker Msg(NETMSG_MAPLIST_GROUP_END, true);
-	SendMsg(&Msg, MSGFLAG_VITAL, ClientId);
-}
-
-void CServer::UpdateClientMaplistEntries(int ClientId)
-{
-	CClient &Client = m_aClients[ClientId];
-	if(Client.m_State != CClient::STATE_INGAME ||
-		!Client.m_Authed ||
-		Client.m_Sixup ||
-		Client.m_pRconCmdToSend != nullptr || // wait for command sending
-		Client.m_MaplistEntryToSend == CClient::MAPLIST_DISABLED ||
-		Client.m_MaplistEntryToSend == CClient::MAPLIST_DONE)
-	{
-		return;
-	}
-
-	if(Client.m_MaplistEntryToSend == CClient::MAPLIST_UNINITIALIZED)
-	{
-		static const char *const MAP_COMMANDS[] = {"sv_map", "change_map"};
-		const int ConsoleAccessLevel = Client.ConsoleAccessLevel();
-		const bool MapCommandAllowed = std::any_of(std::begin(MAP_COMMANDS), std::end(MAP_COMMANDS), [&](const char *pMapCommand) {
-			const IConsole::CCommandInfo *pInfo = Console()->GetCommandInfo(pMapCommand, CFGFLAG_SERVER, false);
-			dbg_assert(pInfo != nullptr, "Map command not found");
-			return ConsoleAccessLevel <= pInfo->GetAccessLevel();
-		});
-		if(MapCommandAllowed)
-		{
-			Client.m_MaplistEntryToSend = 0;
-			SendMaplistGroupStart(ClientId);
-		}
-		else
-		{
-			Client.m_MaplistEntryToSend = CClient::MAPLIST_DISABLED;
-			return;
-		}
-	}
-
-	if((size_t)Client.m_MaplistEntryToSend < m_vMaplistEntries.size())
-	{
-		CMsgPacker Msg(NETMSG_MAPLIST_ADD, true);
-		int Limit = NET_MAX_PAYLOAD - 128;
-		while((size_t)Client.m_MaplistEntryToSend < m_vMaplistEntries.size())
-		{
-			// Space for null termination not included in Limit
-			const int SizeBefore = Msg.Size();
-			Msg.AddString(m_vMaplistEntries[Client.m_MaplistEntryToSend].m_aName, Limit - 1, false);
-			if(Msg.Error())
+			int ConsoleAccessLevel = GetConsoleAccessLevel(ClientId);
+			for(int i = 0; i < MAX_RCONCMD_SEND && m_aClients[ClientId].m_pRconCmdToSend; ++i)
 			{
-				break;
+				SendRconCmdAdd(m_aClients[ClientId].m_pRconCmdToSend, ClientId);
+				m_aClients[ClientId].m_pRconCmdToSend = m_aClients[ClientId].m_pRconCmdToSend->NextCommandInfo(ConsoleAccessLevel, CFGFLAG_SERVER);
+				if(m_aClients[ClientId].m_pRconCmdToSend == nullptr)
+				{
+					CMsgPacker Msg(NETMSG_RCON_CMD_GROUP_END, true);
+					SendMsg(&Msg, MSGFLAG_VITAL, ClientId);
+				}
 			}
-			Limit -= Msg.Size() - SizeBefore;
-			if(Limit <= 1)
-			{
-				break;
-			}
-			++Client.m_MaplistEntryToSend;
 		}
-		SendMsg(&Msg, MSGFLAG_VITAL, ClientId);
-	}
-
-	if((size_t)Client.m_MaplistEntryToSend >= m_vMaplistEntries.size())
-	{
-		SendMaplistGroupEnd(ClientId);
-		Client.m_MaplistEntryToSend = CClient::MAPLIST_DONE;
 	}
 }
 
