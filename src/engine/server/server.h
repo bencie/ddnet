@@ -218,6 +218,7 @@ public:
 	int m_RunServer;
 
 	bool m_MapReload;
+	bool m_SameMapReload;
 	bool m_ReloadedWhenEmpty;
 	int m_RconClientId;
 	int m_RconAuthLevel;
@@ -257,7 +258,6 @@ public:
 
 	size_t m_AnnouncementLastLine;
 	std::vector<std::string> m_vAnnouncements;
-	char m_aAnnouncementFile[IO_MAX_PATH_LENGTH];
 
 	std::shared_ptr<ILogger> m_pFileLogger = nullptr;
 	std::shared_ptr<ILogger> m_pStdoutLogger = nullptr;
@@ -323,6 +323,7 @@ public:
 	void SendCapabilities(int ClientId);
 	void SendMap(int ClientId);
 	void SendMapData(int ClientId, int Chunk);
+	void SendMapReload(int ClientId);
 	void SendConnectionReady(int ClientId);
 	void SendRconLine(int ClientId, const char *pLine);
 	// Accepts -1 as ClientId to mean "all clients with at least auth level admin"
@@ -425,6 +426,7 @@ public:
 	static void ConchainSixupUpdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainLoglevel(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainStdoutOutputLevel(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
+	static void ConchainAnnouncementFileName(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 #if defined(CONF_FAMILY_UNIX)
 	static void ConchainConnLoggingServerChange(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
@@ -442,7 +444,8 @@ public:
 
 	void GetClientAddr(int ClientId, NETADDR *pAddr) const override;
 	int m_aPrevStates[MAX_CLIENTS];
-	const char *GetAnnouncementLine(const char *pFileName) override;
+	const char *GetAnnouncementLine() override;
+	void ReadAnnouncementsFile(const char *pFileName) override;
 
 	int *GetIdMap(int ClientId) override;
 

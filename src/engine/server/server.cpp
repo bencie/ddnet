@@ -247,6 +247,7 @@ CServer::CServer()
 	}
 
 	m_MapReload = false;
+	m_SameMapReload = false;
 	m_ReloadedWhenEmpty = false;
 	m_aCurrentMap[0] = '\0';
 
@@ -540,8 +541,7 @@ int CServer::Init()
 
 	m_CurrentGameTick = MIN_TICK;
 
-	m_AnnouncementLastLine = 0;
-	m_aAnnouncementFile[0] = '\0';
+	m_AnnouncementLastLine = -1;
 	mem_zero(m_aPrevStates, sizeof(m_aPrevStates));
 
 	return 0;
@@ -1271,6 +1271,12 @@ void CServer::SendMapData(int ClientId, int Chunk)
 		str_format(aBuf, sizeof(aBuf), "sending chunk %d with size %d", Chunk, ChunkSize);
 		Console()->Print(IConsole::OUTPUT_LEVEL_DEBUG, "server", aBuf);
 	}
+}
+
+void CServer::SendMapReload(int ClientId)
+{
+	CMsgPacker Msg(NETMSG_MAP_RELOAD, true);
+	SendMsg(&Msg, MSGFLAG_VITAL | MSGFLAG_FLUSH, ClientId);
 }
 
 void CServer::SendConnectionReady(int ClientId)
@@ -2558,12 +2564,13 @@ void CServer::ChangeMap(const char *pMap)
 
 void CServer::ReloadMap()
 {
-	m_MapReload = true;
+	m_SameMapReload = true;
 }
 
 int CServer::LoadMap(const char *pMapName)
 {
 	m_MapReload = false;
+	m_SameMapReload = false;
 
 	char aBuf[IO_MAX_PATH_LENGTH];
 	str_format(aBuf, sizeof(aBuf), "maps/%s.map", pMapName);
@@ -2813,6 +2820,8 @@ int CServer::Run()
 		Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 	}
 
+	ReadAnnouncementsFile(g_Config.m_SvAnnouncementFileName);
+
 	// process pending commands
 	m_pConsole->StoreCommands(false);
 	m_pRegister->OnConfigChange();
@@ -2843,8 +2852,9 @@ int CServer::Run()
 			int NewTicks = 0;
 
 			// load new map
-			if(m_MapReload || m_CurrentGameTick >= MAX_TICK) // force reload to make sure the ticks stay within a valid range
+			if(m_MapReload || m_SameMapReload || m_CurrentGameTick >= MAX_TICK) // force reload to make sure the ticks stay within a valid range
 			{
+				const bool SameMapReload = m_SameMapReload;
 				// load map
 				if(LoadMap(Config()->m_SvMap))
 				{
@@ -2866,6 +2876,9 @@ int CServer::Run()
 					{
 						if(m_aClients[ClientId].m_State <= CClient::STATE_AUTH)
 							continue;
+
+						if(SameMapReload)
+							SendMapReload(ClientId);
 
 						SendMap(ClientId);
 						bool HasPersistentData = m_aClients[ClientId].m_HasPersistentData;
@@ -3543,7 +3556,7 @@ void CServer::ConStopRecord(IConsole::IResult *pResult, void *pUser)
 
 void CServer::ConMapReload(IConsole::IResult *pResult, void *pUser)
 {
-	((CServer *)pUser)->m_MapReload = true;
+	((CServer *)pUser)->ReloadMap();
 }
 
 void CServer::ConLogout(IConsole::IResult *pResult, void *pUser)
@@ -3831,6 +3844,17 @@ void CServer::ConchainStdoutOutputLevel(IConsole::IResult *pResult, void *pUserD
 	}
 }
 
+void CServer::ConchainAnnouncementFileName(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
+{
+	CServer *pSelf = (CServer *)pUserData;
+	bool Changed = pResult->NumArguments() && str_comp(pResult->GetString(0), g_Config.m_SvAnnouncementFileName);
+	pfnCallback(pResult, pCallbackUserData);
+	if(Changed)
+	{
+		pSelf->ReadAnnouncementsFile(g_Config.m_SvAnnouncementFileName);
+	}
+}
+
 #if defined(CONF_FAMILY_UNIX)
 void CServer::ConchainConnLoggingServerChange(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
 {
@@ -3919,6 +3943,8 @@ void CServer::RegisterCommands()
 	Console()->Chain("loglevel", ConchainLoglevel, this);
 	Console()->Chain("stdout_output_level", ConchainStdoutOutputLevel, this);
 
+	Console()->Chain("sv_announcement_filename", ConchainAnnouncementFileName, this);
+
 #if defined(CONF_FAMILY_UNIX)
 	Console()->Chain("sv_conn_logging_server", ConchainConnLoggingServerChange, this);
 #endif
@@ -3971,27 +3997,30 @@ void CServer::GetClientAddr(int ClientId, NETADDR *pAddr) const
 	}
 }
 
-const char *CServer::GetAnnouncementLine(const char *pFileName)
+void CServer::ReadAnnouncementsFile(const char *pFileName)
 {
-	if(str_comp(pFileName, m_aAnnouncementFile) != 0)
-	{
-		str_copy(m_aAnnouncementFile, pFileName);
-		m_vAnnouncements.clear();
+	m_vAnnouncements.clear();
 
-		CLineReader LineReader;
-		if(!LineReader.OpenFile(m_pStorage->OpenFile(pFileName, IOFLAG_READ, IStorage::TYPE_ALL)))
+	if(pFileName[0] == '\0')
+		return;
+
+	CLineReader LineReader;
+	if(!LineReader.OpenFile(m_pStorage->OpenFile(pFileName, IOFLAG_READ, IStorage::TYPE_ALL)))
+	{
+		dbg_msg("announcements", "failed to open '%s'", pFileName);
+		return;
+	}
+	while(const char *pLine = LineReader.Get())
+	{
+		if(str_length(pLine) && pLine[0] != '#')
 		{
-			return 0;
-		}
-		while(const char *pLine = LineReader.Get())
-		{
-			if(str_length(pLine) && pLine[0] != '#')
-			{
-				m_vAnnouncements.emplace_back(pLine);
-			}
+			m_vAnnouncements.emplace_back(pLine);
 		}
 	}
+}
 
+const char *CServer::GetAnnouncementLine()
+{
 	if(m_vAnnouncements.empty())
 	{
 		return 0;
@@ -4000,7 +4029,7 @@ const char *CServer::GetAnnouncementLine(const char *pFileName)
 	{
 		m_AnnouncementLastLine = 0;
 	}
-	else if(!Config()->m_SvAnnouncementRandom)
+	else if(!g_Config.m_SvAnnouncementRandom)
 	{
 		if(++m_AnnouncementLastLine >= m_vAnnouncements.size())
 			m_AnnouncementLastLine %= m_vAnnouncements.size();
