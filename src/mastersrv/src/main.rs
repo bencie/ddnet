@@ -695,6 +695,7 @@ fn handle_register(
             })?;
             Some(token)
         }
+        Protocol::Ddper6 => None,
     };
 
     let addr = register.address.with_ip(remote_addr);
@@ -1038,7 +1039,7 @@ async fn main() {
         .and(warp::post())
         .and(warp::header::headers_cloned())
         .and(warp::addr::remote())
-        .and(warp::body::content_length_limit(16 * 1024)) // limit body size to 16 KiB
+        .and(warp::body::content_length_limit(32 * 1024)) // limit body size to 32 KiB
         .and(warp::body::bytes())
         .map(
             move |headers: warp::http::HeaderMap, addr: Option<SocketAddr>, info: bytes::Bytes| {

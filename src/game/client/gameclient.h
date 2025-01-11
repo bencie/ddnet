@@ -58,6 +58,7 @@
 #include "components/spectator.h"
 #include "components/statboard.h"
 #include "components/tooltips.h"
+#include "components/touch_controls.h"
 #include "components/voting.h"
 
 class CGameInfo
@@ -146,6 +147,7 @@ public:
 	CSounds m_Sounds;
 	CEmoticon m_Emoticon;
 	CDamageInd m_DamageInd;
+	CTouchControls m_TouchControls;
 	CVoting m_Voting;
 	CSpectator m_Spectator;
 
@@ -209,6 +211,7 @@ private:
 	int m_aLastNewPredictedTick[NUM_DUMMIES];
 
 	int m_LastRoundStartTick;
+	int m_LastRaceTick;
 
 	int m_LastFlagCarrierRed;
 	int m_LastFlagCarrierBlue;
@@ -226,7 +229,6 @@ private:
 	static void ConchainSpecialDummyInfoupdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainRefreshSkins(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 	static void ConchainSpecialDummy(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
-	static void ConchainClTextEntitiesSize(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData);
 
 	static void ConTuneZone(IConsole::IResult *pResult, void *pUserData);
 
@@ -330,12 +332,18 @@ public:
 		int m_HighestClientId;
 
 		// spectate data
-		struct CSpectateInfo
+		class CSpectateInfo
 		{
+		public:
 			bool m_Active;
 			int m_SpectatorId;
 			bool m_UsePosition;
 			vec2 m_Position;
+
+			bool m_HasCameraInfo;
+			float m_Zoom;
+			int m_Deadzone;
+			int m_FollowFactor;
 		} m_SpecInfo;
 
 		//
@@ -366,6 +374,35 @@ public:
 	int m_aExpectingTuningSince[NUM_DUMMIES];
 	CTuningParams m_aTuning[NUM_DUMMIES];
 
+	// spectate cursor data
+	class CCursorInfo
+	{
+		friend class CGameClient;
+		static constexpr int CURSOR_SAMPLES = 8; // how many samples to keep
+		static constexpr int SAMPLE_FRAME_WINDOW = 3; // how many samples should be used for polynomial interpolation
+		static constexpr int SAMPLE_FRAME_OFFSET = 2; // how many samples in the past should be included
+		static constexpr double INTERP_DELAY = 4.25; // how many ticks in the past to show, enables extrapolation with smaller value (<= SAMPLE_FRAME_WINDOW - SAMPLE_FRAME_OFFSET + 3)
+		static constexpr double REST_THRESHOLD = 3.0; // how many ticks of the same samples are considered to be resting
+
+		int m_CursorOwnerId;
+		double m_aTargetSamplesTime[CURSOR_SAMPLES];
+		vec2 m_aTargetSamplesData[CURSOR_SAMPLES];
+		int m_NumSamples;
+
+		bool m_Available;
+		int m_Weapon;
+		vec2 m_Target;
+		vec2 m_WorldTarget;
+		vec2 m_Position;
+
+	public:
+		bool IsAvailable() const { return m_Available; }
+		int Weapon() const { return m_Weapon; }
+		vec2 Target() const { return m_Target; }
+		vec2 WorldTarget() const { return m_WorldTarget; }
+		vec2 Position() const { return m_Position; }
+	} m_CursorInfo;
+
 	// client data
 	struct CClientData
 	{
@@ -376,7 +413,7 @@ public:
 		char m_aName[MAX_NAME_LENGTH];
 		char m_aClan[MAX_CLAN_LENGTH];
 		int m_Country;
-		char m_aSkinName[24];
+		char m_aSkinName[MAX_SKIN_LENGTH];
 		int m_SkinColor;
 		int m_Team;
 		int m_Emoticon;
@@ -394,6 +431,7 @@ public:
 		bool m_ShotgunHitDisabled;
 		bool m_HookHitDisabled;
 		bool m_Super;
+		bool m_Invincible;
 		bool m_HasTelegunGun;
 		bool m_HasTelegunGrenade;
 		bool m_HasTelegunLaser;
@@ -534,6 +572,7 @@ public:
 	virtual void OnFlagGrab(int TeamId);
 	void OnWindowResize() override;
 
+	void InitializeLanguage() override;
 	bool m_LanguageChanged = false;
 	void OnLanguageChange();
 	void HandleLanguageChanged();
@@ -555,7 +594,7 @@ public:
 	// actions
 	// TODO: move these
 	void SendSwitchTeam(int Team) const;
-	void SendStartInfo7(bool Dummy) const;
+	void SendStartInfo7(bool Dummy);
 	void SendSkinChange7(bool Dummy);
 	// Returns true if the requested skin change got applied by the server
 	bool GotWantedSkin7(bool Dummy);
@@ -578,7 +617,8 @@ public:
 
 	int IntersectCharacter(vec2 HookPos, vec2 NewPos, vec2 &NewPos2, int OwnId);
 
-	int GetLastRaceTick() const override;
+	int LastRaceTick() const;
+	int CurrentRaceTime() const;
 
 	bool IsTeamPlay() { return m_Snap.m_pGameInfoObj && m_Snap.m_pGameInfoObj->m_GameFlags & GAMEFLAG_TEAMS; }
 
@@ -768,7 +808,8 @@ public:
 	struct SClientExtrasSkin
 	{
 		IGraphics::CTextureHandle m_SpriteParticleSnowflake;
-		IGraphics::CTextureHandle m_aSpriteParticles[1];
+		IGraphics::CTextureHandle m_SpriteParticleSparkle;
+		IGraphics::CTextureHandle m_aSpriteParticles[2];
 	};
 
 	SClientExtrasSkin m_ExtrasSkin;
@@ -777,7 +818,7 @@ public:
 	const std::vector<CSnapEntities> &SnapEntities() { return m_vSnapEntities; }
 
 	int m_MultiViewTeam;
-	int m_MultiViewPersonalZoom;
+	float m_MultiViewPersonalZoom;
 	bool m_MultiViewShowHud;
 	bool m_MultiViewActivated;
 	bool m_aMultiViewId[MAX_CLIENTS];
@@ -794,6 +835,7 @@ private:
 	int m_aShowOthers[NUM_DUMMIES];
 
 	void UpdatePrediction();
+	void UpdateSpectatorCursor();
 	void UpdateRenderedCharacters();
 
 	int m_aLastUpdateTick[MAX_CLIENTS] = {0};
@@ -814,8 +856,11 @@ private:
 	CTuningParams m_aTuningList[NUM_TUNEZONES];
 	CTuningParams *TuningList() { return m_aTuningList; }
 
+	float m_LastShowDistanceZoom;
 	float m_LastZoom;
 	float m_LastScreenAspect;
+	float m_LastDeadzone;
+	float m_LastFollowFactor;
 	bool m_LastDummyConnected;
 
 	void HandleMultiView();

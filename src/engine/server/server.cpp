@@ -52,6 +52,10 @@
 
 extern bool IsInterrupted();
 
+#if defined(CONF_PLATFORM_ANDROID)
+extern std::vector<std::string> FetchAndroidServerCommandQueue();
+#endif
+
 void CServerBan::InitServerBan(IConsole *pConsole, IStorage *pStorage, CServer *pServer)
 {
 	CNetBan::Init(pConsole, pStorage);
@@ -250,6 +254,8 @@ CServer::CServer()
 	m_SameMapReload = false;
 	m_ReloadedWhenEmpty = false;
 	m_aCurrentMap[0] = '\0';
+	m_pCurrentMapName = m_aCurrentMap;
+	m_aMapDownloadUrl[0] = '\0';
 
 	m_RconClientId = IServer::RCON_CID_SERV;
 	m_RconAuthLevel = AUTHED_ADMIN;
@@ -486,22 +492,36 @@ void CServer::Ban(int ClientId, int Seconds, const char *pReason, bool VerbatimR
 	m_NetServer.NetBan()->BanAddr(&Addr, Seconds, pReason, VerbatimReason);
 }
 
-void CServer::RedirectClient(int ClientId, int Port, bool Verbose)
+void CServer::ReconnectClient(int ClientId)
 {
-	if(ClientId < 0 || ClientId >= MAX_CLIENTS)
-		return;
+	dbg_assert(0 <= ClientId && ClientId < MAX_CLIENTS, "invalid client id");
 
-	char aBuf[512];
-	bool SupportsRedirect = GetClientVersion(ClientId) >= VERSION_DDNET_REDIRECT;
-	if(Verbose)
+	if(GetClientVersion(ClientId) < VERSION_DDNET_RECONNECT)
 	{
-		str_format(aBuf, sizeof(aBuf), "redirecting '%s' to port %d supported=%d", ClientName(ClientId), Port, SupportsRedirect);
-		Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "redirect", aBuf);
+		RedirectClient(ClientId, m_NetServer.Address().port);
+		return;
 	}
+	log_info("server", "telling client to reconnect, cid=%d", ClientId);
+
+	CMsgPacker Msg(NETMSG_RECONNECT, true);
+	SendMsg(&Msg, MSGFLAG_VITAL | MSGFLAG_FLUSH, ClientId);
+
+	m_aClients[ClientId].m_RedirectDropTime = time_get() + time_freq() * 10;
+	m_aClients[ClientId].m_State = CClient::STATE_REDIRECTED;
+}
+
+void CServer::RedirectClient(int ClientId, int Port)
+{
+	dbg_assert(0 <= ClientId && ClientId < MAX_CLIENTS, "invalid client id");
+
+	bool SupportsRedirect = GetClientVersion(ClientId) >= VERSION_DDNET_REDIRECT;
+
+	log_info("server", "redirecting client, cid=%d port=%d supported=%d", ClientId, Port, SupportsRedirect);
 
 	if(!SupportsRedirect)
 	{
-		bool SamePort = Port == m_NetServer.Address().port;
+		char aBuf[128];
+		bool SamePort = Port == this->Port();
 		str_format(aBuf, sizeof(aBuf), "Redirect unsupported: please connect to port %d", Port);
 		Kick(ClientId, SamePort ? "Redirect unsupported: please reconnect" : aBuf);
 		return;
@@ -566,16 +586,17 @@ void CServer::SetRconCid(int ClientId)
 
 int CServer::GetAuthedState(int ClientId) const
 {
+	dbg_assert(ClientId >= 0 && ClientId < MAX_CLIENTS, "ClientId is not valid");
+	dbg_assert(m_aClients[ClientId].m_State != CServer::CClient::STATE_EMPTY, "Client slot is empty");
 	return m_aClients[ClientId].m_Authed;
 }
 
 const char *CServer::GetAuthName(int ClientId) const
 {
+	dbg_assert(ClientId >= 0 && ClientId < MAX_CLIENTS, "ClientId is not valid");
+	dbg_assert(m_aClients[ClientId].m_State != CServer::CClient::STATE_EMPTY, "Client slot is empty");
 	int Key = m_aClients[ClientId].m_AuthKey;
-	if(Key == -1)
-	{
-		return 0;
-	}
+	dbg_assert(Key != -1, "Client not authed");
 	return m_AuthManager.KeyIdent(Key);
 }
 
@@ -618,8 +639,9 @@ void CServer::SetClientDDNetVersion(int ClientId, int DDNetVersion)
 
 void CServer::GetClientAddr(int ClientId, char *pAddrStr, int Size) const
 {
-	if(ClientId >= 0 && ClientId < MAX_CLIENTS && m_aClients[ClientId].m_State == CClient::STATE_INGAME)
-		net_addr_str(m_NetServer.ClientAddr(ClientId), pAddrStr, Size, false);
+	NETADDR Addr;
+	GetClientAddr(ClientId, &Addr);
+	net_addr_str(&Addr, pAddrStr, Size, false);
 }
 
 const char *CServer::ClientName(int ClientId) const
@@ -660,11 +682,6 @@ bool CServer::ClientSlotEmpty(int ClientId) const
 bool CServer::ClientIngame(int ClientId) const
 {
 	return ClientId >= 0 && ClientId < MAX_CLIENTS && m_aClients[ClientId].m_State == CServer::CClient::STATE_INGAME;
-}
-
-bool CServer::ClientAuthed(int ClientId) const
-{
-	return ClientId >= 0 && ClientId < MAX_CLIENTS && m_aClients[ClientId].m_Authed;
 }
 
 int CServer::Port() const
@@ -1217,7 +1234,14 @@ void CServer::SendMap(int ClientId)
 		Msg.AddRaw(&m_aCurrentMapSha256[MapType].data, sizeof(m_aCurrentMapSha256[MapType].data));
 		Msg.AddInt(m_aCurrentMapCrc[MapType]);
 		Msg.AddInt(m_aCurrentMapSize[MapType]);
-		Msg.AddString("", 0); // HTTPS map download URL
+		if(m_aMapDownloadUrl[0])
+		{
+			Msg.AddString(m_aMapDownloadUrl, 0);
+		}
+		else
+		{
+			Msg.AddString("", 0);
+		}
 		SendMsg(&Msg, MSGFLAG_VITAL, ClientId);
 	}
 	{
@@ -2546,14 +2570,7 @@ void CServer::PumpNetwork(bool PacketWaiting)
 
 const char *CServer::GetMapName() const
 {
-	// get the name of the map without his path
-	const char *pMapShortName = &Config()->m_SvMap[0];
-	for(int i = 0; i < str_length(Config()->m_SvMap) - 1; i++)
-	{
-		if(Config()->m_SvMap[i] == '/' || Config()->m_SvMap[i] == '\\')
-			pMapShortName = &Config()->m_SvMap[i + 1];
-	}
-	return pMapShortName;
+	return m_pCurrentMapName;
 }
 
 void CServer::ChangeMap(const char *pMap)
@@ -2592,6 +2609,7 @@ int CServer::LoadMap(const char *pMapName)
 	Console()->Print(IConsole::OUTPUT_LEVEL_ADDINFO, "server", aBufMsg);
 
 	str_copy(m_aCurrentMap, pMapName);
+	m_pCurrentMapName = fs_filename(m_aCurrentMap);
 
 	// load complete map into memory for download
 	{
@@ -2599,6 +2617,16 @@ int CServer::LoadMap(const char *pMapName)
 		void *pData;
 		Storage()->ReadFile(aBuf, IStorage::TYPE_ALL, &pData, &m_aCurrentMapSize[MAP_TYPE_SIX]);
 		m_apCurrentMapData[MAP_TYPE_SIX] = (unsigned char *)pData;
+	}
+
+	if(Config()->m_SvMapsBaseUrl[0])
+	{
+		str_format(aBuf, sizeof(aBuf), "%s%s_%s.map", Config()->m_SvMapsBaseUrl, pMapName, aSha256);
+		EscapeUrl(m_aMapDownloadUrl, aBuf);
+	}
+	else
+	{
+		m_aMapDownloadUrl[0] = '\0';
 	}
 
 	// load sixup version of the map
@@ -2820,7 +2848,7 @@ int CServer::Run()
 		Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aBuf);
 	}
 
-	ReadAnnouncementsFile(g_Config.m_SvAnnouncementFileName);
+	ReadAnnouncementsFile();
 
 	// process pending commands
 	m_pConsole->StoreCommands(false);
@@ -2891,7 +2919,9 @@ int CServer::Run()
 					m_CurrentGameTick = MIN_TICK;
 					m_ServerInfoFirstRequest = 0;
 					Kernel()->ReregisterInterface(GameServer());
+					Console()->StoreCommands(true);
 					GameServer()->OnInit(m_pPersistentData);
+					Console()->StoreCommands(false);
 					if(ErrorShutdown())
 					{
 						break;
@@ -2977,6 +3007,14 @@ int CServer::Run()
 				UpdateClientRconCommands();
 
 				m_Fifo.Update();
+
+#if defined(CONF_PLATFORM_ANDROID)
+				std::vector<std::string> vAndroidCommandQueue = FetchAndroidServerCommandQueue();
+				for(const std::string &Command : vAndroidCommandQueue)
+				{
+					Console()->ExecuteLineFlag(Command.c_str(), CFGFLAG_SERVER, -1);
+				}
+#endif
 
 				// master server stuff
 				m_pRegister->Update();
@@ -3430,13 +3468,13 @@ void CServer::DemoRecorder_HandleAutoStart()
 		char aTimestamp[20];
 		str_timestamp(aTimestamp, sizeof(aTimestamp));
 		char aFilename[IO_MAX_PATH_LENGTH];
-		str_format(aFilename, sizeof(aFilename), "demos/auto/server/%s_%s.demo", m_aCurrentMap, aTimestamp);
+		str_format(aFilename, sizeof(aFilename), "demos/auto/server/%s_%s.demo", GetMapName(), aTimestamp);
 		m_aDemoRecorder[RECORDER_AUTO].Start(
 			Storage(),
 			m_pConsole,
 			aFilename,
 			GameServer()->NetVersion(),
-			m_aCurrentMap,
+			GetMapName(),
 			m_aCurrentMapSha256[MAP_TYPE_SIX],
 			m_aCurrentMapCrc[MAP_TYPE_SIX],
 			"server",
@@ -3460,7 +3498,7 @@ void CServer::SaveDemo(int ClientId, float Time)
 	if(IsRecording(ClientId))
 	{
 		char aNewFilename[IO_MAX_PATH_LENGTH];
-		str_format(aNewFilename, sizeof(aNewFilename), "demos/%s_%s_%05.2f.demo", m_aCurrentMap, m_aClients[ClientId].m_aName, Time);
+		str_format(aNewFilename, sizeof(aNewFilename), "demos/%s_%s_%05.2f.demo", GetMapName(), m_aClients[ClientId].m_aName, Time);
 		m_aDemoRecorder[ClientId].Stop(IDemoRecorder::EStopMode::KEEP_FILE, aNewFilename);
 	}
 }
@@ -3470,13 +3508,13 @@ void CServer::StartRecord(int ClientId)
 	if(Config()->m_SvPlayerDemoRecord)
 	{
 		char aFilename[IO_MAX_PATH_LENGTH];
-		str_format(aFilename, sizeof(aFilename), "demos/%s_%d_%d_tmp.demo", m_aCurrentMap, m_NetServer.Address().port, ClientId);
+		str_format(aFilename, sizeof(aFilename), "demos/%s_%d_%d_tmp.demo", GetMapName(), m_NetServer.Address().port, ClientId);
 		m_aDemoRecorder[ClientId].Start(
 			Storage(),
 			Console(),
 			aFilename,
 			GameServer()->NetVersion(),
-			m_aCurrentMap,
+			GetMapName(),
 			m_aCurrentMapSha256[MAP_TYPE_SIX],
 			m_aCurrentMapCrc[MAP_TYPE_SIX],
 			"server",
@@ -3538,7 +3576,7 @@ void CServer::ConRecord(IConsole::IResult *pResult, void *pUser)
 		pServer->Console(),
 		aFilename,
 		pServer->GameServer()->NetVersion(),
-		pServer->m_aCurrentMap,
+		pServer->GetMapName(),
 		pServer->m_aCurrentMapSha256[MAP_TYPE_SIX],
 		pServer->m_aCurrentMapCrc[MAP_TYPE_SIX],
 		"server",
@@ -3585,8 +3623,7 @@ void CServer::ConShowIps(IConsole::IResult *pResult, void *pUser)
 		{
 			char aStr[9];
 			str_format(aStr, sizeof(aStr), "Value: %d", pServer->m_aClients[pServer->m_RconClientId].m_ShowIps);
-			char aBuf[32];
-			pServer->SendRconLine(pServer->m_RconClientId, pServer->Console()->Format(aBuf, sizeof(aBuf), "server", aStr));
+			pServer->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", aStr);
 		}
 	}
 }
@@ -3658,6 +3695,12 @@ void CServer::ConDumpSqlServers(IConsole::IResult *pResult, void *pUserData)
 		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "server", "choose either 'r' for SqlReadServer or 'w' for SqlWriteServer");
 		return;
 	}
+}
+
+void CServer::ConReloadAnnouncement(IConsole::IResult *pResult, void *pUserData)
+{
+	CServer *pThis = static_cast<CServer *>(pUserData);
+	pThis->ReadAnnouncementsFile();
 }
 
 void CServer::ConchainSpecialInfoupdate(IConsole::IResult *pResult, void *pUserData, IConsole::FCommandCallback pfnCallback, void *pCallbackUserData)
@@ -3851,7 +3894,7 @@ void CServer::ConchainAnnouncementFileName(IConsole::IResult *pResult, void *pUs
 	pfnCallback(pResult, pCallbackUserData);
 	if(Changed)
 	{
-		pSelf->ReadAnnouncementsFile(g_Config.m_SvAnnouncementFileName);
+		pSelf->ReadAnnouncementsFile();
 	}
 }
 
@@ -3925,6 +3968,8 @@ void CServer::RegisterCommands()
 	Console()->Register("auth_remove", "s[ident]", CFGFLAG_SERVER | CFGFLAG_NONTEEHISTORIC, ConAuthRemove, this, "Remove a rcon key");
 	Console()->Register("auth_list", "", CFGFLAG_SERVER, ConAuthList, this, "List all rcon keys");
 
+	Console()->Register("reload_announcement", "", CFGFLAG_SERVER, ConReloadAnnouncement, this, "Reload the announcements");
+
 	RustVersionRegister(*Console());
 
 	Console()->Chain("sv_name", ConchainSpecialInfoupdate, this);
@@ -3991,23 +4036,22 @@ CServer *CreateServer() { return new CServer(); }
 
 void CServer::GetClientAddr(int ClientId, NETADDR *pAddr) const
 {
-	if(ClientId >= 0 && ClientId < MAX_CLIENTS && m_aClients[ClientId].m_State == CClient::STATE_INGAME)
-	{
-		*pAddr = *m_NetServer.ClientAddr(ClientId);
-	}
+	dbg_assert(ClientId >= 0 && ClientId < MAX_CLIENTS, "ClientId is not valid");
+	dbg_assert(m_aClients[ClientId].m_State != CServer::CClient::STATE_EMPTY, "Client slot is empty");
+	*pAddr = *m_NetServer.ClientAddr(ClientId);
 }
 
-void CServer::ReadAnnouncementsFile(const char *pFileName)
+void CServer::ReadAnnouncementsFile()
 {
 	m_vAnnouncements.clear();
 
-	if(pFileName[0] == '\0')
+	if(g_Config.m_SvAnnouncementFileName[0] == '\0')
 		return;
 
 	CLineReader LineReader;
-	if(!LineReader.OpenFile(m_pStorage->OpenFile(pFileName, IOFLAG_READ, IStorage::TYPE_ALL)))
+	if(!LineReader.OpenFile(m_pStorage->OpenFile(g_Config.m_SvAnnouncementFileName, IOFLAG_READ, IStorage::TYPE_ALL)))
 	{
-		dbg_msg("announcements", "failed to open '%s'", pFileName);
+		log_error("server", "Failed load announcements from '%s'", g_Config.m_SvAnnouncementFileName);
 		return;
 	}
 	while(const char *pLine = LineReader.Get())
@@ -4017,13 +4061,14 @@ void CServer::ReadAnnouncementsFile(const char *pFileName)
 			m_vAnnouncements.emplace_back(pLine);
 		}
 	}
+	log_info("server", "Loaded %" PRIzu " announcements", m_vAnnouncements.size());
 }
 
 const char *CServer::GetAnnouncementLine()
 {
 	if(m_vAnnouncements.empty())
 	{
-		return 0;
+		return nullptr;
 	}
 	else if(m_vAnnouncements.size() == 1)
 	{

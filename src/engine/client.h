@@ -8,15 +8,15 @@
 #include "message.h"
 #include <base/hash.h>
 
+#include <engine/client/enums.h>
+#include <engine/friends.h>
 #include <engine/shared/translation_context.h>
 
 #include <game/generated/protocol.h>
 #include <game/generated/protocol7.h>
 
-#include <engine/friends.h>
 #include <functional>
-
-#include <engine/client/enums.h>
+#include <optional>
 
 struct SWarning;
 
@@ -208,7 +208,7 @@ public:
 	virtual int *GetInput(int Tick, int IsDummy = 0) const = 0;
 
 	// remote console
-	virtual void RconAuth(const char *pUsername, const char *pPassword) = 0;
+	virtual void RconAuth(const char *pUsername, const char *pPassword, bool Dummy) = 0;
 	virtual bool RconAuthed() const = 0;
 	virtual bool UseTempRconCommands() const = 0;
 	virtual void Rcon(const char *pLine) = 0;
@@ -282,8 +282,6 @@ public:
 
 	virtual bool IsSixup() const = 0;
 
-	virtual int GetCurrentRaceTime() = 0;
-
 	virtual void RaceRecord_Start(const char *pFilename) = 0;
 	virtual void RaceRecord_Stop() = 0;
 	virtual bool RaceRecord_IsRecording() = 0;
@@ -302,7 +300,7 @@ public:
 	virtual void GetSmoothTick(int *pSmoothTick, float *pSmoothIntraTick, float MixAmount) = 0;
 
 	virtual void AddWarning(const SWarning &Warning) = 0;
-	virtual SWarning *GetCurWarning() = 0;
+	virtual std::optional<SWarning> CurrentWarning() = 0;
 
 	virtual CChecksumData *ChecksumData() = 0;
 	virtual int UdpConnectivity(int NetType) = 0;
@@ -369,7 +367,6 @@ public:
 	virtual int OnSnapInput(int *pData, bool Dummy, bool Force) = 0;
 	virtual void OnDummySwap() = 0;
 	virtual void SendDummyInfo(bool Start) = 0;
-	virtual int GetLastRaceTick() const = 0;
 
 	virtual const char *GetItemName(int Type) const = 0;
 	virtual const char *Version() const = 0;
@@ -393,6 +390,8 @@ public:
 	virtual void ApplySkin7InfoFromSnapObj(const protocol7::CNetObj_De_ClientInfo *pObj, int ClientId) = 0;
 	virtual int OnDemoRecSnap7(class CSnapshot *pFrom, class CSnapshot *pTo, int Conn) = 0;
 	virtual int TranslateSnap(class CSnapshot *pSnapDstSix, class CSnapshot *pSnapSrcSeven, int Conn, bool Dummy) = 0;
+
+	virtual void InitializeLanguage() = 0;
 };
 
 void SnapshotRemoveExtraProjectileInfo(class CSnapshot *pSnap);

@@ -56,7 +56,9 @@ void CGameContext::ConCredits(IConsole::IResult *pResult, void *pUserData)
 	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "chatresp",
 		"DynamoFox, MilkeeyCat, iMilchshake, SchrodingerZhu,");
 	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "chatresp",
-		"catseyenebulous, Rei-Tw, Matodor, Emilcha, art0007i & others");
+		"catseyenebulous, Rei-Tw, Matodor, Emilcha, art0007i, SollyBunny,");
+	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "chatresp",
+		"0xfaulty & others");
 	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "chatresp",
 		"Based on DDRace by the DDRace developers,");
 	pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "chatresp",
@@ -113,7 +115,7 @@ void CGameContext::ConHelp(IConsole::IResult *pResult, void *pUserData)
 	{
 		const char *pArg = pResult->GetString(0);
 		const IConsole::CCommandInfo *pCmdInfo =
-			pSelf->Console()->GetCommandInfo(pArg, CFGFLAG_SERVER, false);
+			pSelf->Console()->GetCommandInfo(pArg, CFGFLAG_SERVER | CFGFLAG_CHAT, false);
 		if(pCmdInfo)
 		{
 			if(pCmdInfo->m_pParams)
@@ -127,10 +129,11 @@ void CGameContext::ConHelp(IConsole::IResult *pResult, void *pUserData)
 				pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "chatresp", pCmdInfo->m_pHelp);
 		}
 		else
-			pSelf->Console()->Print(
-				IConsole::OUTPUT_LEVEL_STANDARD,
-				"chatresp",
-				"Command is either unknown or you have given a blank command without any parameters.");
+		{
+			char aBuf[256];
+			str_format(aBuf, sizeof(aBuf), "Unknown command %s", pArg);
+			pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "chatresp", aBuf);
+		}
 	}
 }
 
@@ -1919,10 +1922,12 @@ void CGameContext::ConTeleCursor(IConsole::IResult *pResult, void *pUserData)
 		return;
 	}
 
+	// default to view pos when character is not available
 	vec2 Pos = pPlayer->m_ViewPos;
-	if(pResult->NumArguments() == 0 && !pPlayer->IsPaused())
+	if(pResult->NumArguments() == 0 && !pPlayer->IsPaused() && pPlayer->GetCharacter() && pPlayer->GetCharacter()->IsAlive())
 	{
-		Pos += vec2(pChr->Core()->m_Input.m_TargetX, pChr->Core()->m_Input.m_TargetY);
+		vec2 Target = vec2(pChr->Core()->m_Input.m_TargetX, pChr->Core()->m_Input.m_TargetY);
+		Pos = pPlayer->m_CameraInfo.ConvertTargetToWorld(pPlayer->GetCharacter()->GetPos(), Target);
 	}
 	else if(pResult->NumArguments() > 0)
 	{
@@ -1999,6 +2004,46 @@ CCharacter *CGameContext::GetPracticeCharacter(IConsole::IResult *pResult)
 		return nullptr;
 	}
 	return pChr;
+}
+
+void CGameContext::ConPracticeToTeleporter(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	CCharacter *pChr = pSelf->GetPracticeCharacter(pResult);
+	if(pChr)
+	{
+		if(pSelf->Collision()->TeleOuts(pResult->GetInteger(0) - 1).empty())
+		{
+			pSelf->SendChatTarget(pChr->GetPlayer()->GetCid(), "There is no teleporter with that index on the map.");
+			return;
+		}
+
+		ConToTeleporter(pResult, pUserData);
+		pChr->ResetJumps();
+		pChr->UnFreeze();
+		pChr->ResetVelocity();
+		pChr->GetPlayer()->m_LastTeleTee.Save(pChr);
+	}
+}
+
+void CGameContext::ConPracticeToCheckTeleporter(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	CCharacter *pChr = pSelf->GetPracticeCharacter(pResult);
+	if(pChr)
+	{
+		if(pSelf->Collision()->TeleCheckOuts(pResult->GetInteger(0) - 1).empty())
+		{
+			pSelf->SendChatTarget(pChr->GetPlayer()->GetCid(), "There is no checkpoint teleporter with that index on the map.");
+			return;
+		}
+
+		ConToCheckTeleporter(pResult, pUserData);
+		pChr->ResetJumps();
+		pChr->UnFreeze();
+		pChr->ResetVelocity();
+		pChr->GetPlayer()->m_LastTeleTee.Save(pChr);
+	}
 }
 
 void CGameContext::ConPracticeUnSolo(IConsole::IResult *pResult, void *pUserData)
@@ -2078,6 +2123,26 @@ void CGameContext::ConPracticeDeep(IConsole::IResult *pResult, void *pUserData)
 	pChr->SetDeepFrozen(true);
 }
 
+void CGameContext::ConPracticeUnLiveFreeze(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	auto *pChr = pSelf->GetPracticeCharacter(pResult);
+	if(!pChr)
+		return;
+
+	pChr->SetLiveFrozen(false);
+}
+
+void CGameContext::ConPracticeLiveFreeze(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	auto *pChr = pSelf->GetPracticeCharacter(pResult);
+	if(!pChr)
+		return;
+
+	pChr->SetLiveFrozen(true);
+}
+
 void CGameContext::ConPracticeShotgun(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
@@ -2104,6 +2169,13 @@ void CGameContext::ConPracticeJetpack(IConsole::IResult *pResult, void *pUserDat
 	CGameContext *pSelf = (CGameContext *)pUserData;
 	if(pSelf->GetPracticeCharacter(pResult))
 		ConJetpack(pResult, pUserData);
+}
+
+void CGameContext::ConPracticeEndlessJump(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(pSelf->GetPracticeCharacter(pResult))
+		ConEndlessJump(pResult, pUserData);
 }
 
 void CGameContext::ConPracticeSetJumps(IConsole::IResult *pResult, void *pUserData)
@@ -2148,6 +2220,13 @@ void CGameContext::ConPracticeUnJetpack(IConsole::IResult *pResult, void *pUserD
 		ConUnJetpack(pResult, pUserData);
 }
 
+void CGameContext::ConPracticeUnEndlessJump(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(pSelf->GetPracticeCharacter(pResult))
+		ConUnEndlessJump(pResult, pUserData);
+}
+
 void CGameContext::ConPracticeUnWeapons(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
@@ -2167,6 +2246,27 @@ void CGameContext::ConPracticeUnNinja(IConsole::IResult *pResult, void *pUserDat
 	CGameContext *pSelf = (CGameContext *)pUserData;
 	if(pSelf->GetPracticeCharacter(pResult))
 		ConUnNinja(pResult, pUserData);
+}
+
+void CGameContext::ConPracticeEndlessHook(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(pSelf->GetPracticeCharacter(pResult))
+		ConEndlessHook(pResult, pUserData);
+}
+
+void CGameContext::ConPracticeUnEndlessHook(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(pSelf->GetPracticeCharacter(pResult))
+		ConUnEndlessHook(pResult, pUserData);
+}
+
+void CGameContext::ConPracticeToggleInvincible(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(pSelf->GetPracticeCharacter(pResult))
+		ConToggleInvincible(pResult, pUserData);
 }
 
 void CGameContext::ConPracticeAddWeapon(IConsole::IResult *pResult, void *pUserData)

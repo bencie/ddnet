@@ -219,8 +219,15 @@ public:
 	void MakeTuneLayer(const std::shared_ptr<CLayer> &pLayer);
 };
 
-struct CProperty
+class CProperty
 {
+public:
+	CProperty(const char *pName, int Value, int Type, int Min, int Max) :
+		m_pName(pName), m_Value(Value), m_Type(Type), m_Min(Min), m_Max(Max) {}
+
+	CProperty(std::nullptr_t) :
+		m_pName(nullptr), m_Value(0), m_Type(0), m_Min(0), m_Max(0) {}
+
 	const char *m_pName;
 	int m_Value;
 	int m_Type;
@@ -378,6 +385,7 @@ public:
 
 		m_FileDialogStorageType = 0;
 		m_FileDialogLastPopulatedStorageType = 0;
+		m_FileDialogSaveAction = false;
 		m_pFileDialogTitle = nullptr;
 		m_pFileDialogButtonText = nullptr;
 		m_pFileDialogUser = nullptr;
@@ -432,7 +440,6 @@ public:
 		}
 
 		m_CheckerTexture.Invalidate();
-		m_BackgroundTexture.Invalidate();
 		for(auto &CursorTexture : m_aCursorTextures)
 			CursorTexture.Invalidate();
 
@@ -444,6 +451,8 @@ public:
 
 		m_TeleNumber = 1;
 		m_TeleCheckpointNumber = 1;
+		m_ViewTeleNumber = 0;
+
 		m_SwitchNum = 1;
 		m_TuningNum = 1;
 		m_SwitchDelay = 0;
@@ -599,7 +608,9 @@ public:
 		POPEVENT_PLACE_BORDER_TILES,
 		POPEVENT_PIXELART_BIG_IMAGE,
 		POPEVENT_PIXELART_MANY_COLORS,
-		POPEVENT_PIXELART_TOO_MANY_COLORS
+		POPEVENT_PIXELART_TOO_MANY_COLORS,
+		POPEVENT_REMOVE_USED_IMAGE,
+		POPEVENT_REMOVE_USED_SOUND,
 	};
 
 	int m_PopupEventType;
@@ -623,6 +634,7 @@ public:
 
 	int m_FileDialogStorageType;
 	int m_FileDialogLastPopulatedStorageType;
+	bool m_FileDialogSaveAction;
 	const char *m_pFileDialogTitle;
 	const char *m_pFileDialogButtonText;
 	bool (*m_pfnFileDialogFunc)(const char *pFileName, int StorageType, void *pUser);
@@ -804,7 +816,6 @@ public:
 	bool m_ColorPipetteActive = false;
 
 	IGraphics::CTextureHandle m_CheckerTexture;
-	IGraphics::CTextureHandle m_BackgroundTexture;
 
 	enum ECursorType
 	{
@@ -902,6 +913,8 @@ public:
 	static CUi::EPopupMenuFunctionResult PopupEntities(void *pContext, CUIRect View, bool Active);
 	static CUi::EPopupMenuFunctionResult PopupProofMode(void *pContext, CUIRect View, bool Active);
 	static CUi::EPopupMenuFunctionResult PopupAnimateSettings(void *pContext, CUIRect View, bool Active);
+	int m_PopupEnvelopeSelectedPoint = -1;
+	static CUi::EPopupMenuFunctionResult PopupEnvelopeCurvetype(void *pContext, CUIRect View, bool Active);
 
 	static bool CallbackOpenMap(const char *pFileName, int StorageType, void *pUser);
 	static bool CallbackAppendMap(const char *pFileName, int StorageType, void *pUser);
@@ -956,6 +969,7 @@ public:
 	};
 	void DoMapEditor(CUIRect View);
 	void DoToolbarLayers(CUIRect Toolbar);
+	void DoToolbarImages(CUIRect Toolbar);
 	void DoToolbarSounds(CUIRect Toolbar);
 	void DoQuad(int LayerIndex, const std::shared_ptr<CLayerQuads> &pLayer, CQuad *pQuad, int Index);
 	void PreparePointDrag(const std::shared_ptr<CLayerQuads> &pLayer, CQuad *pQuad, int QuadIndex, int PointIndex);
@@ -997,6 +1011,7 @@ public:
 	static bool ReplaceSoundCallback(const char *pFileName, int StorageType, void *pUser);
 	static bool AddImage(const char *pFilename, int StorageType, void *pUser);
 	static bool AddSound(const char *pFileName, int StorageType, void *pUser);
+	static bool IsAssetUsed(int FileType, int Index, void *pUser);
 
 	bool IsEnvelopeUsed(int EnvelopeIndex) const;
 	void RemoveUnusedEnvelopes();
@@ -1158,7 +1173,7 @@ public:
 
 	void AdjustBrushSpecialTiles(bool UseNextFree, int Adjust = 0);
 	int FindNextFreeSwitchNumber();
-	int FindNextFreeTeleNumber(bool IsCheckpoint = false);
+	int FindNextFreeTeleNumber(bool Checkpoint = false);
 
 	// Undo/Redo
 	CEditorHistory m_EditorHistory;

@@ -5,6 +5,7 @@
 
 #include <deque>
 #include <memory>
+#include <mutex>
 
 #include <base/hash.h>
 
@@ -187,7 +188,7 @@ class CClient : public IClient, public CDemoPlayer::IListener
 
 	// graphs
 	CGraph m_InputtimeMarginGraph;
-	CGraph m_GametimeMarginGraph;
+	CGraph m_aGametimeMarginGraphs[NUM_DUMMIES];
 	CGraph m_FpsGraph;
 
 	// the game snapshots are modifiable by the game
@@ -235,6 +236,7 @@ class CClient : public IClient, public CDemoPlayer::IListener
 		int m_State = STATE_INIT;
 	} m_VersionInfo;
 
+	std::mutex m_WarningsMutex;
 	std::vector<SWarning> m_vWarnings;
 	std::vector<SWarning> m_vQuittingWarnings;
 
@@ -244,7 +246,7 @@ class CClient : public IClient, public CDemoPlayer::IListener
 	int64_t m_BenchmarkStopTime = 0;
 
 	CChecksum m_Checksum;
-	int m_OwnExecutableSize = 0;
+	int64_t m_OwnExecutableSize = 0;
 	IOHANDLE m_OwnExecutable = 0;
 
 	// favorite command handling
@@ -293,7 +295,7 @@ public:
 
 	bool RconAuthed() const override { return m_aRconAuthed[g_Config.m_ClDummy] != 0; }
 	bool UseTempRconCommands() const override { return m_UseTempRconCommands != 0; }
-	void RconAuth(const char *pName, const char *pPassword) override;
+	void RconAuth(const char *pName, const char *pPassword, bool Dummy = g_Config.m_ClDummy) override;
 	void Rcon(const char *pCmd) override;
 	bool ReceivingRconCommands() const override { return m_ExpectedRconCommands > 0; }
 	float GotRconCommandsPercentage() const override;
@@ -487,8 +489,6 @@ public:
 	void GenerateTimeoutSeed() override;
 	void GenerateTimeoutCodes(const NETADDR *pAddrs, int NumAddrs);
 
-	int GetCurrentRaceTime() override;
-
 	const char *GetCurrentMap() const override;
 	const char *GetCurrentMapPath() const override;
 	SHA256_DIGEST GetCurrentMapSha256() const override;
@@ -510,7 +510,7 @@ public:
 	void GetSmoothTick(int *pSmoothTick, float *pSmoothIntraTick, float MixAmount) override;
 
 	void AddWarning(const SWarning &Warning) override;
-	SWarning *GetCurWarning() override;
+	std::optional<SWarning> CurrentWarning() override;
 	std::vector<SWarning> &&QuittingWarnings() { return std::move(m_vQuittingWarnings); }
 
 	CChecksumData *ChecksumData() override { return &m_Checksum.m_Data; }

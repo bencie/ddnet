@@ -181,6 +181,14 @@ void CGameContext::ConUnSuper(IConsole::IResult *pResult, void *pUserData)
 	}
 }
 
+void CGameContext::ConToggleInvincible(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	CCharacter *pChr = pSelf->GetPlayerChar(pResult->m_ClientId);
+	if(pChr)
+		pChr->SetInvincible(pResult->NumArguments() == 0 ? !pChr->Core()->m_Invincible : pResult->GetInteger(0));
+}
+
 void CGameContext::ConSolo(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
@@ -290,6 +298,14 @@ void CGameContext::ConJetpack(IConsole::IResult *pResult, void *pUserData)
 		pChr->SetJetpack(true);
 }
 
+void CGameContext::ConEndlessJump(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	CCharacter *pChr = pSelf->GetPlayerChar(pResult->m_ClientId);
+	if(pChr)
+		pChr->SetEndlessJump(true);
+}
+
 void CGameContext::ConSetJumps(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
@@ -328,6 +344,14 @@ void CGameContext::ConUnJetpack(IConsole::IResult *pResult, void *pUserData)
 	CCharacter *pChr = pSelf->GetPlayerChar(pResult->m_ClientId);
 	if(pChr)
 		pChr->SetJetpack(false);
+}
+
+void CGameContext::ConUnEndlessJump(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	CCharacter *pChr = pSelf->GetPlayerChar(pResult->m_ClientId);
+	if(pChr)
+		pChr->SetEndlessJump(false);
 }
 
 void CGameContext::ConUnWeapons(IConsole::IResult *pResult, void *pUserData)
@@ -436,10 +460,12 @@ void CGameContext::ConTeleport(IConsole::IResult *pResult, void *pUserData)
 
 	if(pChr && pPlayer && pSelf->GetPlayerChar(TeleTo))
 	{
-		vec2 Pos = pSelf->m_apPlayers[TeleTo]->m_ViewPos;
-		if(!pPlayer->IsPaused() && !pResult->NumArguments())
+		// default to view pos when character is not available
+		vec2 Pos = pPlayer->m_ViewPos;
+		if(pResult->NumArguments() == 0 && !pPlayer->IsPaused() && pChr->IsAlive())
 		{
-			Pos += vec2(pChr->Core()->m_Input.m_TargetX, pChr->Core()->m_Input.m_TargetY);
+			vec2 Target = vec2(pChr->Core()->m_Input.m_TargetX, pChr->Core()->m_Input.m_TargetY);
+			Pos = pPlayer->m_CameraInfo.ConvertTargetToWorld(pChr->GetPos(), Target);
 		}
 		pSelf->Teleport(pChr, Pos);
 		pChr->ResetJumps();
@@ -945,12 +971,6 @@ void CGameContext::ConReloadCensorlist(IConsole::IResult *pResult, void *pUserDa
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
 	pSelf->ReadCensorList();
-}
-
-void CGameContext::ConReloadAnnouncement(IConsole::IResult *pResult, void *pUserData)
-{
-	CGameContext *pSelf = (CGameContext *)pUserData;
-	pSelf->Server()->ReadAnnouncementsFile(g_Config.m_SvAnnouncementFileName);
 }
 
 void CGameContext::ConDumpAntibot(IConsole::IResult *pResult, void *pUserData)

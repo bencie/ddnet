@@ -401,11 +401,6 @@ struct CUISkin
 	bool operator==(const char *pOther) const { return !str_comp_nocase(m_pSkin->GetName(), pOther); }
 };
 
-void CMenus::OnRefreshSkins()
-{
-	m_SkinListNeedsUpdate = true;
-}
-
 void CMenus::Con_AddFavoriteSkin(IConsole::IResult *pResult, void *pUserData)
 {
 	auto *pSelf = (CMenus *)pUserData;
@@ -417,7 +412,7 @@ void CMenus::Con_AddFavoriteSkin(IConsole::IResult *pResult, void *pUserData)
 		return;
 	}
 	pSelf->m_SkinFavorites.emplace(pStr);
-	pSelf->m_SkinFavoritesChanged = true;
+	pSelf->m_SkinListLastRefreshTime = std::nullopt;
 }
 
 void CMenus::Con_RemFavoriteSkin(IConsole::IResult *pResult, void *pUserData)
@@ -427,7 +422,7 @@ void CMenus::Con_RemFavoriteSkin(IConsole::IResult *pResult, void *pUserData)
 	if(it != pSelf->m_SkinFavorites.end())
 	{
 		pSelf->m_SkinFavorites.erase(it);
-		pSelf->m_SkinFavoritesChanged = true;
+		pSelf->m_SkinListLastRefreshTime = std::nullopt;
 	}
 }
 
@@ -459,12 +454,14 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	if(DoButton_MenuTab(&s_PlayerTabButton, Localize("Player"), !m_Dummy, &PlayerTab, IGraphics::CORNER_L, nullptr, nullptr, nullptr, nullptr, 4.0f))
 	{
 		m_Dummy = false;
+		m_SkinListScrollToSelected = true;
 	}
 
 	static CButtonContainer s_DummyTabButton;
 	if(DoButton_MenuTab(&s_DummyTabButton, Localize("Dummy"), m_Dummy, &DummyTab, IGraphics::CORNER_R, nullptr, nullptr, nullptr, nullptr, 4.0f))
 	{
 		m_Dummy = true;
+		m_SkinListScrollToSelected = true;
 	}
 
 	if(Client()->State() == IClient::STATE_ONLINE && m_pClient->m_NextChangeInfo && m_pClient->m_NextChangeInfo > Client()->GameTick(g_Config.m_ClDummy))
@@ -593,17 +590,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	// which invalidates the skin.
 	CTeeRenderInfo OwnSkinInfo;
 	OwnSkinInfo.Apply(m_pClient->m_Skins.Find(pSkinName));
-	OwnSkinInfo.m_CustomColoredSkin = *pUseCustomColor;
-	if(*pUseCustomColor)
-	{
-		OwnSkinInfo.m_ColorBody = color_cast<ColorRGBA>(ColorHSLA(*pColorBody).UnclampLighting(ColorHSLA::DARKEST_LGT));
-		OwnSkinInfo.m_ColorFeet = color_cast<ColorRGBA>(ColorHSLA(*pColorFeet).UnclampLighting(ColorHSLA::DARKEST_LGT));
-	}
-	else
-	{
-		OwnSkinInfo.m_ColorBody = ColorRGBA(1.0f, 1.0f, 1.0f);
-		OwnSkinInfo.m_ColorFeet = ColorRGBA(1.0f, 1.0f, 1.0f);
-	}
+	OwnSkinInfo.ApplyColors(*pUseCustomColor, *pColorBody, *pColorFeet);
 	OwnSkinInfo.m_Size = 50.0f;
 
 	// Tee
@@ -621,6 +608,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	if(Ui()->DoClearableEditBox(&s_SkinInput, &Button, 14.0f))
 	{
 		SetNeedSendInfo();
+		m_SkinListScrollToSelected = true;
 	}
 
 	// Random skin button
@@ -633,6 +621,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	{
 		GameClient()->m_Skins.RandomizeSkin(m_Dummy);
 		SetNeedSendInfo();
+		m_SkinListScrollToSelected = true;
 		s_CurrentDie = rand() % std::size(s_apDice);
 	}
 	TextRender()->SetRenderFlags(0);
@@ -717,22 +706,15 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	static std::vector<CUISkin> s_vSkinList;
 	static std::vector<CUISkin> s_vSkinListHelper;
 	static std::vector<CUISkin> s_vFavoriteSkinListHelper;
-	static int s_SkinCount = 0;
 	static CListBox s_ListBox;
 
 	// be nice to the CPU
-	static auto s_SkinLastRebuildTime = time_get_nanoseconds();
-	const auto CurTime = time_get_nanoseconds();
-	if(m_SkinListNeedsUpdate || m_pClient->m_Skins.Num() != s_SkinCount || m_SkinFavoritesChanged || (m_pClient->m_Skins.IsDownloadingSkins() && (CurTime - s_SkinLastRebuildTime > 500ms)))
+	if(!m_SkinListLastRefreshTime.has_value() || m_SkinListLastRefreshTime.value() != m_pClient->m_Skins.LastRefreshTime())
 	{
-		s_SkinLastRebuildTime = CurTime;
+		m_SkinListLastRefreshTime = m_pClient->m_Skins.LastRefreshTime();
 		s_vSkinList.clear();
 		s_vSkinListHelper.clear();
 		s_vFavoriteSkinListHelper.clear();
-		// set skin count early, since Find of the skin class might load
-		// a downloading skin
-		s_SkinCount = m_pClient->m_Skins.Num();
-		m_SkinFavoritesChanged = false;
 
 		auto &&SkinNotFiltered = [&](const CSkin *pSkinToBeSelected) {
 			// filter quick search
@@ -740,7 +722,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 				return false;
 
 			// no special skins
-			if((pSkinToBeSelected->GetName()[0] == 'x' && pSkinToBeSelected->GetName()[1] == '_'))
+			if(CSkins::IsSpecialSkin(pSkinToBeSelected->GetName()))
 				return false;
 
 			return true;
@@ -768,7 +750,6 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		std::sort(s_vFavoriteSkinListHelper.begin(), s_vFavoriteSkinListHelper.end());
 		s_vSkinList = s_vFavoriteSkinListHelper;
 		s_vSkinList.insert(s_vSkinList.end(), s_vSkinListHelper.begin(), s_vSkinListHelper.end());
-		m_SkinListNeedsUpdate = false;
 	}
 
 	int OldSelected = -1;
@@ -777,7 +758,14 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	{
 		const CSkin *pSkinToBeDraw = s_vSkinList[i].m_pSkin;
 		if(str_comp(pSkinToBeDraw->GetName(), pSkinName) == 0)
+		{
 			OldSelected = i;
+			if(m_SkinListScrollToSelected)
+			{
+				s_ListBox.ScrollToSelected();
+				m_SkinListScrollToSelected = false;
+			}
+		}
 
 		const CListboxItem Item = s_ListBox.DoNextItem(pSkinToBeDraw, OldSelected >= 0 && (size_t)OldSelected == i);
 		if(!Item.m_Visible)
@@ -786,10 +774,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 		Item.m_Rect.VSplitLeft(60.0f, &Button, &Label);
 
 		CTeeRenderInfo Info = OwnSkinInfo;
-		Info.m_CustomColoredSkin = *pUseCustomColor;
-		Info.m_OriginalRenderSkin = pSkinToBeDraw->m_OriginalSkin;
-		Info.m_ColorableRenderSkin = pSkinToBeDraw->m_ColorableSkin;
-		Info.m_SkinMetrics = pSkinToBeDraw->m_Metrics;
+		Info.Apply(pSkinToBeDraw);
 
 		vec2 OffsetToMid;
 		CRenderTools::GetRenderTeeOffsetToRenderedTee(CAnimState::GetIdle(), &Info, OffsetToMid);
@@ -828,7 +813,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 				{
 					m_SkinFavorites.emplace(pSkinToBeDraw->GetName());
 				}
-				m_SkinListNeedsUpdate = true;
+				m_SkinListLastRefreshTime = std::nullopt;
 			}
 		}
 	}
@@ -843,7 +828,7 @@ void CMenus::RenderSettingsTee(CUIRect MainView)
 	static CLineInput s_SkinFilterInput(g_Config.m_ClSkinFilterString, sizeof(g_Config.m_ClSkinFilterString));
 	if(Ui()->DoEditBox_Search(&s_SkinFilterInput, &QuickSearch, 14.0f, !Ui()->IsPopupOpen() && m_pClient->m_GameConsole.IsClosed()))
 	{
-		m_SkinListNeedsUpdate = true;
+		m_SkinListLastRefreshTime = std::nullopt;
 	}
 
 	static CButtonContainer s_SkinDatabaseButton;
@@ -2359,6 +2344,17 @@ void CMenus::RenderSettingsAppearance(CUIRect MainView)
 		// Settings of the HUD element for votes
 		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClShowVotesAfterVoting, Localize("Show votes window after voting"), &g_Config.m_ClShowVotesAfterVoting, &LeftView, LineSize);
 
+		// ***** Scoreboard ***** //
+		LeftView.HSplitTop(MarginBetweenViews, nullptr, &LeftView);
+		LeftView.HSplitTop(HeadlineHeight, &Label, &LeftView);
+		Ui()->DoLabel(&Label, Localize("Scoreboard"), HeadlineFontSize, TEXTALIGN_ML);
+		LeftView.HSplitTop(MarginSmall, nullptr, &LeftView);
+
+		ColorRGBA GreenDefault(0.78f, 1.0f, 0.8f, 1.0f);
+		static CButtonContainer s_AuthedColor, s_SameClanColor;
+		DoLine_ColorPicker(&s_AuthedColor, ColorPickerLineSize, ColorPickerLabelSize, ColorPickerLineSpacing, &LeftView, Localize("Authed name color in scoreboard"), &g_Config.m_ClAuthedPlayerColor, GreenDefault, false);
+		DoLine_ColorPicker(&s_SameClanColor, ColorPickerLineSize, ColorPickerLabelSize, ColorPickerLineSpacing, &LeftView, Localize("Same clan color in scoreboard"), &g_Config.m_ClSameClanColor, GreenDefault, false);
+
 		// ***** DDRace HUD ***** //
 		RightView.HSplitTop(HeadlineHeight, &Label, &RightView);
 		Ui()->DoLabel(&Label, Localize("DDRace HUD"), HeadlineFontSize, TEXTALIGN_ML);
@@ -2514,7 +2510,6 @@ void CMenus::RenderSettingsAppearance(CUIRect MainView)
 
 		static std::vector<SPreviewLine> s_vLines;
 
-		const auto *pDefaultSkin = GameClient()->m_Skins.Find("default");
 		enum ELineFlag
 		{
 			FLAG_TEAM = 1 << 0,
@@ -2552,15 +2547,11 @@ void CMenus::RenderSettingsAppearance(CUIRect MainView)
 			str_copy(pLine->m_aName, pName);
 			str_copy(pLine->m_aText, pText);
 		};
-		auto &&SetLineSkin = [RealTeeSize, &pDefaultSkin](int Index, const CSkin *pSkin) {
+		auto &&SetLineSkin = [RealTeeSize](int Index, const CSkin *pSkin) {
 			if(Index >= (int)s_vLines.size())
 				return;
 			s_vLines[Index].m_RenderInfo.m_Size = RealTeeSize;
-			s_vLines[Index].m_RenderInfo.m_CustomColoredSkin = false;
-			if(pSkin != nullptr)
-				s_vLines[Index].m_RenderInfo.m_OriginalRenderSkin = pSkin->m_OriginalSkin;
-			else if(pDefaultSkin != nullptr)
-				s_vLines[Index].m_RenderInfo.m_OriginalRenderSkin = pDefaultSkin->m_OriginalSkin;
+			s_vLines[Index].m_RenderInfo.Apply(pSkin);
 		};
 
 		auto &&RenderPreview = [&](int LineIndex, int x, int y, bool Render = true) {
@@ -2666,10 +2657,10 @@ void CMenus::RenderSettingsAppearance(CUIRect MainView)
 			SetPreviewLine(PREVIEW_CLIENT, -1, "— ", "Echo command executed", FLAG_CLIENT, 0);
 		}
 
-		SetLineSkin(1, GameClient()->m_Skins.FindOrNullptr("pinky"));
-		SetLineSkin(2, pDefaultSkin);
-		SetLineSkin(3, GameClient()->m_Skins.FindOrNullptr("cammostripes"));
-		SetLineSkin(4, GameClient()->m_Skins.FindOrNullptr("beast"));
+		SetLineSkin(1, GameClient()->m_Skins.Find("pinky"));
+		SetLineSkin(2, GameClient()->m_Skins.Find("default"));
+		SetLineSkin(3, GameClient()->m_Skins.Find("cammostripes"));
+		SetLineSkin(4, GameClient()->m_Skins.Find("beast"));
 
 		// Backgrounds first
 		if(!g_Config.m_ClChatOld)
@@ -2760,32 +2751,51 @@ void CMenus::RenderSettingsAppearance(CUIRect MainView)
 		LeftView.HSplitTop(MarginSmall, nullptr, &LeftView);
 
 		// General name plate settings
-		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClNameplates, Localize("Show name plates"), &g_Config.m_ClNameplates, &LeftView, LineSize);
+		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClNamePlates, Localize("Show name plates"), &g_Config.m_ClNamePlates, &LeftView, LineSize);
 		LeftView.HSplitTop(2 * LineSize, &Button, &LeftView);
-		Ui()->DoScrollbarOption(&g_Config.m_ClNameplatesSize, &g_Config.m_ClNameplatesSize, &Button, Localize("Name plates size"), 0, 100, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE);
+		Ui()->DoScrollbarOption(&g_Config.m_ClNamePlatesSize, &g_Config.m_ClNamePlatesSize, &Button, Localize("Name plates size"), -50, 100, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE);
 
-		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClNameplatesClan, Localize("Show clan above name plates"), &g_Config.m_ClNameplatesClan, &LeftView, LineSize);
+		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClNamePlatesClan, Localize("Show clan above name plates"), &g_Config.m_ClNamePlatesClan, &LeftView, LineSize);
 		LeftView.HSplitTop(2 * LineSize, &Button, &LeftView);
-		if(g_Config.m_ClNameplatesClan)
+		if(g_Config.m_ClNamePlatesClan)
 		{
-			Ui()->DoScrollbarOption(&g_Config.m_ClNameplatesClanSize, &g_Config.m_ClNameplatesClanSize, &Button, Localize("Clan plates size"), 0, 100, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE);
+			Ui()->DoScrollbarOption(&g_Config.m_ClNamePlatesClanSize, &g_Config.m_ClNamePlatesClanSize, &Button, Localize("Clan plates size"), -50, 100, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE);
 		}
 
-		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClNameplatesTeamcolors, Localize("Use team colors for name plates"), &g_Config.m_ClNameplatesTeamcolors, &LeftView, LineSize);
-		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClNameplatesFriendMark, Localize("Show friend mark (♥) in name plates"), &g_Config.m_ClNameplatesFriendMark, &LeftView, LineSize);
+		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClNamePlatesTeamcolors, Localize("Use team colors for name plates"), &g_Config.m_ClNamePlatesTeamcolors, &LeftView, LineSize);
+		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClNamePlatesFriendMark, Localize("Show friend mark (♥) in name plates"), &g_Config.m_ClNamePlatesFriendMark, &LeftView, LineSize);
+		DoButton_CheckBoxAutoVMarginAndSet(&g_Config.m_ClNamePlatesIds, Localize("Show client IDs in name plates"), &g_Config.m_ClNamePlatesIds, &LeftView, LineSize);
+
+		// ***** Hook Strength ***** //
+		LeftView.HSplitTop(MarginBetweenViews, nullptr, &LeftView);
+		LeftView.HSplitTop(HeadlineHeight, &Label, &LeftView);
+		Ui()->DoLabel(&Label, Localize("Hook Strength"), HeadlineFontSize, TEXTALIGN_ML);
+		LeftView.HSplitTop(MarginSmall, nullptr, &LeftView);
 
 		LeftView.HSplitTop(LineSize, &Button, &LeftView);
-		if(DoButton_CheckBox(&g_Config.m_ClNameplatesStrong, Localize("Show hook strength icon indicator"), g_Config.m_ClNameplatesStrong, &Button))
+		if(DoButton_CheckBox(&g_Config.m_ClNamePlatesStrong, Localize("Show hook strength icon indicator"), g_Config.m_ClNamePlatesStrong, &Button))
 		{
-			g_Config.m_ClNameplatesStrong = g_Config.m_ClNameplatesStrong ? 0 : 1;
+			g_Config.m_ClNamePlatesStrong = g_Config.m_ClNamePlatesStrong ? 0 : 1;
 		}
 		LeftView.HSplitTop(LineSize, &Button, &LeftView);
-		if(g_Config.m_ClNameplatesStrong)
+		if(g_Config.m_ClNamePlatesStrong)
 		{
-			static int s_NameplatesStrong = 0;
-			if(DoButton_CheckBox(&s_NameplatesStrong, Localize("Show hook strength number indicator"), g_Config.m_ClNameplatesStrong == 2, &Button))
-				g_Config.m_ClNameplatesStrong = g_Config.m_ClNameplatesStrong != 2 ? 2 : 1;
+			static int s_NamePlatesStrong = 0;
+			if(DoButton_CheckBox(&s_NamePlatesStrong, Localize("Show hook strength number indicator"), g_Config.m_ClNamePlatesStrong == 2, &Button))
+				g_Config.m_ClNamePlatesStrong = g_Config.m_ClNamePlatesStrong != 2 ? 2 : 1;
 		}
+
+		LeftView.HSplitTop(2 * LineSize, &Button, &LeftView);
+		if(g_Config.m_ClNamePlatesStrong)
+		{
+			Ui()->DoScrollbarOption(&g_Config.m_ClNamePlatesStrongSize, &g_Config.m_ClNamePlatesStrongSize, &Button, Localize("Size of hook strength icon and number indicator"), -50, 100, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE);
+		}
+
+		// ***** Key Presses ***** //
+		LeftView.HSplitTop(MarginBetweenViews, nullptr, &LeftView);
+		LeftView.HSplitTop(HeadlineHeight, &Label, &LeftView);
+		Ui()->DoLabel(&Label, Localize("Key Presses"), HeadlineFontSize, TEXTALIGN_ML);
+		LeftView.HSplitTop(MarginSmall, nullptr, &LeftView);
 
 		LeftView.HSplitTop(LineSize, &Button, &LeftView);
 		if(DoButton_CheckBox(&g_Config.m_ClShowDirection, Localize("Show other players' key presses"), g_Config.m_ClShowDirection >= 1 && g_Config.m_ClShowDirection != 3, &Button))
@@ -2800,10 +2810,26 @@ void CMenus::RenderSettingsAppearance(CUIRect MainView)
 			g_Config.m_ClShowDirection = g_Config.m_ClShowDirection ^ 3;
 		}
 
-		ColorRGBA GreenDefault(0.78f, 1.0f, 0.8f, 1.0f);
-		static CButtonContainer s_AuthedColor, s_SameClanColor;
-		DoLine_ColorPicker(&s_AuthedColor, ColorPickerLineSize, ColorPickerLabelSize, ColorPickerLineSpacing, &LeftView, Localize("Authed name color in scoreboard"), &g_Config.m_ClAuthedPlayerColor, GreenDefault, false);
-		DoLine_ColorPicker(&s_SameClanColor, ColorPickerLineSize, ColorPickerLabelSize, ColorPickerLineSpacing, &LeftView, Localize("Same clan color in scoreboard"), &g_Config.m_ClSameClanColor, GreenDefault, false);
+		LeftView.HSplitTop(2 * LineSize, &Button, &LeftView);
+		if(g_Config.m_ClShowDirection > 0)
+		{
+			Ui()->DoScrollbarOption(&g_Config.m_ClDirectionSize, &g_Config.m_ClDirectionSize, &Button, Localize("Size of key press icons"), -50, 100, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE);
+		}
+
+		// ***** Name Plate Preview ***** //
+		RightView.HSplitTop(HeadlineHeight, &Label, &RightView);
+		Ui()->DoLabel(&Label, Localize("Preview"), HeadlineFontSize, TEXTALIGN_ML);
+		RightView.HSplitTop(2.0f * MarginSmall, nullptr, &RightView);
+
+		CTeeRenderInfo TeeRenderInfo;
+		TeeRenderInfo.Apply(m_pClient->m_Skins.Find(g_Config.m_ClPlayerSkin));
+		TeeRenderInfo.ApplyColors(g_Config.m_ClPlayerUseCustomColor, g_Config.m_ClPlayerColorBody, g_Config.m_ClPlayerColorFeet);
+		TeeRenderInfo.m_Size = 64.0f;
+
+		const vec2 Position = RightView.Center();
+		RenderTools()->RenderTee(CAnimState::GetIdle(), &TeeRenderInfo, 0, vec2(1.0f, 0.0f), Position);
+
+		GameClient()->m_NamePlates.RenderNamePlatePreview(Position);
 	}
 	else if(s_CurTab == APPEARANCE_TAB_HOOK_COLLISION)
 	{
@@ -2842,7 +2868,10 @@ void CMenus::RenderSettingsAppearance(CUIRect MainView)
 		}
 
 		LeftView.HSplitTop(2 * LineSize, &Button, &LeftView);
-		Ui()->DoScrollbarOption(&g_Config.m_ClHookCollSize, &g_Config.m_ClHookCollSize, &Button, Localize("Hook collision line width"), 0, 20, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE);
+		Ui()->DoScrollbarOption(&g_Config.m_ClHookCollSize, &g_Config.m_ClHookCollSize, &Button, Localize("Width of your own hook collision line"), 0, 20, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE);
+
+		LeftView.HSplitTop(2 * LineSize, &Button, &LeftView);
+		Ui()->DoScrollbarOption(&g_Config.m_ClHookCollSizeOther, &g_Config.m_ClHookCollSizeOther, &Button, Localize("Width of others' hook collision line"), 0, 20, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE);
 
 		LeftView.HSplitTop(2 * LineSize, &Button, &LeftView);
 		Ui()->DoScrollbarOption(&g_Config.m_ClHookCollAlpha, &g_Config.m_ClHookCollAlpha, &Button, Localize("Hook collision line opacity"), 0, 100, &CUi::ms_LinearScrollbarScale, CUi::SCROLLBAR_OPTION_MULTILINE, "%");
@@ -2858,6 +2887,120 @@ void CMenus::RenderSettingsAppearance(CUIRect MainView)
 		DoLine_ColorPicker(&s_HookCollNoCollResetId, ColorPickerLineSize, ColorPickerLabelSize, ColorPickerLineSpacing, &LeftView, Localize("Nothing hookable"), &g_Config.m_ClHookCollColorNoColl, ColorRGBA(1.0f, 0.0f, 0.0f, 1.0f), false);
 		DoLine_ColorPicker(&s_HookCollHookableCollResetId, ColorPickerLineSize, ColorPickerLabelSize, ColorPickerLineSpacing, &LeftView, Localize("Something hookable"), &g_Config.m_ClHookCollColorHookableColl, ColorRGBA(130.0f / 255.0f, 232.0f / 255.0f, 160.0f / 255.0f, 1.0f), false);
 		DoLine_ColorPicker(&s_HookCollTeeCollResetId, ColorPickerLineSize, ColorPickerLabelSize, ColorPickerLineSpacing, &LeftView, Localize("A Tee"), &g_Config.m_ClHookCollColorTeeColl, ColorRGBA(1.0f, 1.0f, 0.0f, 1.0f), false);
+
+		// ***** Hook collisions preview ***** //
+		RightView.HSplitTop(HeadlineHeight, &Label, &RightView);
+		Ui()->DoLabel(&Label, Localize("Preview"), HeadlineFontSize, TEXTALIGN_ML);
+		RightView.HSplitTop(2 * MarginSmall, nullptr, &RightView);
+
+		auto DoHookCollision = [this](const vec2 &Pos, const float &Length, const int &Size, const ColorRGBA &Color, const bool &Invert) {
+			ColorRGBA ColorModified = Color;
+			if(Invert)
+				ColorModified = color_invert(ColorModified);
+			ColorModified = ColorModified.WithAlpha((float)g_Config.m_ClHookCollAlpha / 100);
+			Graphics()->TextureClear();
+			if(Size > 0)
+			{
+				Graphics()->QuadsBegin();
+				Graphics()->SetColor(ColorModified);
+				float LineWidth = 0.5f + (float)(Size - 1) * 0.25f;
+				IGraphics::CQuadItem QuadItem(Pos.x, Pos.y - LineWidth, Length, LineWidth * 2.f);
+				Graphics()->QuadsDrawTL(&QuadItem, 1);
+				Graphics()->QuadsEnd();
+			}
+			else
+			{
+				Graphics()->LinesBegin();
+				Graphics()->SetColor(ColorModified);
+				IGraphics::CLineItem LineItem(Pos.x, Pos.y, Pos.x + Length, Pos.y);
+				Graphics()->LinesDraw(&LineItem, 1);
+				Graphics()->LinesEnd();
+			}
+		};
+
+		CTeeRenderInfo OwnSkinInfo;
+		OwnSkinInfo.Apply(m_pClient->m_Skins.Find(g_Config.m_ClPlayerSkin));
+		OwnSkinInfo.ApplyColors(g_Config.m_ClPlayerUseCustomColor, g_Config.m_ClPlayerColorBody, g_Config.m_ClPlayerColorFeet);
+		OwnSkinInfo.m_Size = 50.0f;
+
+		CTeeRenderInfo DummySkinInfo;
+		DummySkinInfo.Apply(m_pClient->m_Skins.Find(g_Config.m_ClDummySkin));
+		DummySkinInfo.ApplyColors(g_Config.m_ClDummyUseCustomColor, g_Config.m_ClDummyColorBody, g_Config.m_ClDummyColorFeet);
+		DummySkinInfo.m_Size = 50.0f;
+
+		vec2 TeeRenderPos, DummyRenderPos;
+
+		const float LineLength = 150.f;
+		const float LeftMargin = 30.f;
+
+		const int TileScale = 32.0f;
+
+		// Toggled via checkbox later, inverts some previews
+		static bool s_HookCollPressed = false;
+
+		CUIRect PreviewColl;
+
+		// ***** Unhookable Tile Preview *****
+		CUIRect PreviewNoColl;
+		RightView.HSplitTop(50.0f, &PreviewNoColl, &RightView);
+		RightView.HSplitTop(4 * MarginSmall, nullptr, &RightView);
+		TeeRenderPos = vec2(PreviewNoColl.x + LeftMargin, PreviewNoColl.y + PreviewNoColl.h / 2.0f);
+		DoHookCollision(TeeRenderPos, PreviewNoColl.w - LineLength, g_Config.m_ClHookCollSize, color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClHookCollColorNoColl)), s_HookCollPressed);
+		RenderTools()->RenderTee(CAnimState::GetIdle(), &OwnSkinInfo, 0, vec2(1.0f, 0.0f), TeeRenderPos);
+
+		CUIRect NoHookTileRect;
+		PreviewNoColl.VSplitRight(LineLength, &PreviewNoColl, &NoHookTileRect);
+		NoHookTileRect.VSplitLeft(50.0f, &NoHookTileRect, nullptr);
+		NoHookTileRect.Margin(10.0f, &NoHookTileRect);
+
+		// Render unhookable tile
+		Graphics()->TextureClear();
+		Graphics()->TextureSet(m_pClient->m_MapImages.GetEntities(MAP_IMAGE_ENTITY_LAYER_TYPE_ALL_EXCEPT_SWITCH));
+		Graphics()->BlendNormal();
+		Graphics()->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
+		RenderTools()->RenderTile(NoHookTileRect.x, NoHookTileRect.y, TILE_NOHOOK, TileScale, ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f));
+
+		// ***** Hookable Tile Preview *****
+		RightView.HSplitTop(50.0f, &PreviewColl, &RightView);
+		RightView.HSplitTop(4 * MarginSmall, nullptr, &RightView);
+		TeeRenderPos = vec2(PreviewColl.x + LeftMargin, PreviewColl.y + PreviewColl.h / 2.0f);
+		DoHookCollision(TeeRenderPos, PreviewColl.w - LineLength, g_Config.m_ClHookCollSize, color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClHookCollColorHookableColl)), s_HookCollPressed);
+		RenderTools()->RenderTee(CAnimState::GetIdle(), &OwnSkinInfo, 0, vec2(1.0f, 0.0f), TeeRenderPos);
+
+		CUIRect HookTileRect;
+		PreviewColl.VSplitRight(LineLength, &PreviewColl, &HookTileRect);
+		HookTileRect.VSplitLeft(50.0f, &HookTileRect, nullptr);
+		HookTileRect.Margin(10.0f, &HookTileRect);
+
+		// Render hookable tile
+		Graphics()->TextureClear();
+		Graphics()->TextureSet(m_pClient->m_MapImages.GetEntities(MAP_IMAGE_ENTITY_LAYER_TYPE_ALL_EXCEPT_SWITCH));
+		Graphics()->BlendNormal();
+		Graphics()->SetColor(1.0f, 1.0f, 1.0f, 1.0f);
+		RenderTools()->RenderTile(HookTileRect.x, HookTileRect.y, TILE_SOLID, TileScale, ColorRGBA(1.0f, 1.0f, 1.0f, 1.0f));
+
+		// ***** Hook Dummy Preivew *****
+		RightView.HSplitTop(50.0f, &PreviewColl, &RightView);
+		RightView.HSplitTop(4 * MarginSmall, nullptr, &RightView);
+		TeeRenderPos = vec2(PreviewColl.x + LeftMargin, PreviewColl.y + PreviewColl.h / 2.0f);
+		DummyRenderPos = vec2(PreviewColl.x + PreviewColl.w - LineLength - 5.f + LeftMargin, PreviewColl.y + PreviewColl.h / 2.0f);
+		DoHookCollision(TeeRenderPos, PreviewColl.w - LineLength - 15.f, g_Config.m_ClHookCollSize, color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClHookCollColorTeeColl)), s_HookCollPressed);
+		RenderTools()->RenderTee(CAnimState::GetIdle(), &DummySkinInfo, 0, vec2(1.0f, 0.0f), DummyRenderPos);
+		RenderTools()->RenderTee(CAnimState::GetIdle(), &OwnSkinInfo, 0, vec2(1.0f, 0.0f), TeeRenderPos);
+
+		// ***** Hook Dummy Reverse Preivew *****
+		RightView.HSplitTop(50.0f, &PreviewColl, &RightView);
+		RightView.HSplitTop(4 * MarginSmall, nullptr, &RightView);
+		TeeRenderPos = vec2(PreviewColl.x + LeftMargin, PreviewColl.y + PreviewColl.h / 2.0f);
+		DummyRenderPos = vec2(PreviewColl.x + PreviewColl.w - LineLength - 5.f + LeftMargin, PreviewColl.y + PreviewColl.h / 2.0f);
+		DoHookCollision(TeeRenderPos, PreviewColl.w - LineLength - 15.f, g_Config.m_ClHookCollSizeOther, color_cast<ColorRGBA>(ColorHSLA(g_Config.m_ClHookCollColorTeeColl)), false);
+		RenderTools()->RenderTee(CAnimState::GetIdle(), &OwnSkinInfo, 0, vec2(1.0f, 0.0f), DummyRenderPos);
+		RenderTools()->RenderTee(CAnimState::GetIdle(), &DummySkinInfo, 0, vec2(1.0f, 0.0f), TeeRenderPos);
+
+		// ***** Preview +hookcoll pressed toggle *****
+		RightView.HSplitTop(LineSize, &Button, &RightView);
+		if(DoButton_CheckBox(&s_HookCollPressed, Localize("Preview 'Hook collisions' being pressed"), s_HookCollPressed, &Button))
+			s_HookCollPressed = !s_HookCollPressed;
 	}
 	else if(s_CurTab == APPEARANCE_TAB_INFO_MESSAGES)
 	{
@@ -3072,7 +3215,7 @@ void CMenus::RenderSettingsDDNet(CUIRect MainView)
 
 	Ui()->DoScrollbarOption(&g_Config.m_ClShowOthersAlpha, &g_Config.m_ClShowOthersAlpha, &Button, Localize("Opacity"), 0, 100, &CUi::ms_LinearScrollbarScale, 0u, "%");
 
-	GameClient()->m_Tooltips.DoToolTip(&g_Config.m_ClShowOthersAlpha, &Button, Localize("Adjust the opacity of entities belonging to other teams, such as tees and nameplates"));
+	GameClient()->m_Tooltips.DoToolTip(&g_Config.m_ClShowOthersAlpha, &Button, Localize("Adjust the opacity of entities belonging to other teams, such as tees and name plates"));
 
 	Left.HSplitTop(20.0f, &Button, &Left);
 	static int s_ShowOwnTeamId = 0;
@@ -3090,7 +3233,7 @@ void CMenus::RenderSettingsDDNet(CUIRect MainView)
 
 	Right.HSplitTop(20.0f, &Button, &Right);
 	if(Ui()->DoScrollbarOption(&g_Config.m_ClDefaultZoom, &g_Config.m_ClDefaultZoom, &Button, Localize("Default zoom"), 0, 20))
-		m_pClient->m_Camera.SetZoom(std::pow(CCamera::ZOOM_STEP, g_Config.m_ClDefaultZoom - 10), g_Config.m_ClSmoothZoomTime);
+		m_pClient->m_Camera.SetZoom(CCamera::ZoomStepsToValue(g_Config.m_ClDefaultZoom - 10), g_Config.m_ClSmoothZoomTime, true);
 
 	Right.HSplitTop(20.0f, &Button, &Right);
 	if(DoButton_CheckBox(&g_Config.m_ClAntiPing, Localize("AntiPing"), g_Config.m_ClAntiPing, &Button))
@@ -3161,7 +3304,6 @@ void CMenus::RenderSettingsDDNet(CUIRect MainView)
 		static SPopupMenuId s_PopupMapPickerId;
 		static CPopupMapPickerContext s_PopupMapPickerContext;
 		s_PopupMapPickerContext.m_pMenus = this;
-
 		s_PopupMapPickerContext.MapListPopulate();
 		Ui()->DoPopupMenu(&s_PopupMapPickerId, Ui()->MouseX(), Ui()->MouseY(), 300.0f, 250.0f, &s_PopupMapPickerContext, PopupMapPicker);
 	}
@@ -3264,7 +3406,7 @@ CUi::EPopupMenuFunctionResult CMenus::PopupMapPicker(void *pContext, CUIRect Vie
 
 	static CListBox s_ListBox;
 	s_ListBox.SetActive(Active);
-	s_ListBox.DoStart(20.0f, pPopupContext->m_vMaps.size(), 1, 1, -1, &View, false);
+	s_ListBox.DoStart(20.0f, pPopupContext->m_vMaps.size(), 1, 3, -1, &View, false);
 
 	int MapIndex = 0;
 	for(auto &Map : pPopupContext->m_vMaps)
@@ -3308,7 +3450,7 @@ CUi::EPopupMenuFunctionResult CMenus::PopupMapPicker(void *pContext, CUIRect Vie
 	pPopupContext->m_Selection = NewSelected >= 0 ? NewSelected : -1;
 	if(s_ListBox.WasItemSelected() || s_ListBox.WasItemActivated())
 	{
-		const CMapListItem SelectedItem = pPopupContext->m_vMaps[pPopupContext->m_Selection];
+		const CMapListItem &SelectedItem = pPopupContext->m_vMaps[pPopupContext->m_Selection];
 
 		if(SelectedItem.m_IsDirectory)
 		{
@@ -3341,6 +3483,7 @@ void CMenus::CPopupMapPickerContext::MapListPopulate()
 	str_format(aTemp, sizeof(aTemp), "maps/%s", m_aCurrentMapFolder);
 	m_pMenus->Storage()->ListDirectoryInfo(IStorage::TYPE_ALL, aTemp, MapListFetchCallback, this);
 	std::stable_sort(m_vMaps.begin(), m_vMaps.end(), CompareFilenameAscending);
+	m_Selection = -1;
 }
 
 int CMenus::CPopupMapPickerContext::MapListFetchCallback(const CFsFileInfo *pInfo, int IsDir, int StorageType, void *pUser)

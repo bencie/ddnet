@@ -90,8 +90,6 @@ void CMenus::HandleDemoSeeking(float PositionToSeek, float TimeToSeek)
 		else
 			DemoPlayer()->SeekPercent(PositionToSeek);
 		m_pClient->m_SuppressEvents = false;
-		m_pClient->m_MapLayersBackground.EnvelopeUpdate();
-		m_pClient->m_MapLayersForeground.EnvelopeUpdate();
 		if(!DemoPlayer()->BaseInfo()->m_Paused && PositionToSeek == 1.0f)
 			DemoPlayer()->Pause();
 	}
@@ -103,8 +101,6 @@ void CMenus::DemoSeekTick(IDemoPlayer::ETickOffset TickOffset)
 	DemoPlayer()->SeekTick(TickOffset);
 	m_pClient->m_SuppressEvents = false;
 	DemoPlayer()->Pause();
-	m_pClient->m_MapLayersBackground.EnvelopeUpdate();
-	m_pClient->m_MapLayersForeground.EnvelopeUpdate();
 }
 
 void CMenus::RenderDemoPlayer(CUIRect MainView)
@@ -718,6 +714,19 @@ void CMenus::RenderDemoPlayer(CUIRect MainView)
 	}
 	GameClient()->m_Tooltips.DoToolTip(&s_KeyboardShortcutsButton, &Button, Localize("Toggle keyboard shortcuts"));
 
+	// auto camera button (only available when it is possible to use)
+	if(m_pClient->m_Camera.CanUseAutoSpecCamera())
+	{
+		ButtonBar.VSplitRight(Margins, &ButtonBar, nullptr);
+		ButtonBar.VSplitRight(ButtonbarHeight, &ButtonBar, &Button);
+		static CButtonContainer s_AutoCameraButton;
+		if(DoButton_FontIcon(&s_AutoCameraButton, FONT_ICON_CAMERA, 0, &Button, IGraphics::CORNER_ALL, m_pClient->m_Camera.m_AutoSpecCamera))
+		{
+			m_pClient->m_Camera.m_AutoSpecCamera = !m_pClient->m_Camera.m_AutoSpecCamera;
+		}
+		GameClient()->m_Tooltips.DoToolTip(&s_AutoCameraButton, &Button, Localize("Toggle auto camera"));
+	}
+
 	// demo name
 	char aDemoName[IO_MAX_PATH_LENGTH];
 	DemoPlayer()->GetDemoName(aDemoName, sizeof(aDemoName));
@@ -924,7 +933,7 @@ int CMenus::DemolistFetchCallback(const CFsFileInfo *pInfo, int IsDir, int Stora
 
 	if(time_get_nanoseconds() - pSelf->m_DemoPopulateStartTime > 500ms)
 	{
-		pSelf->RenderLoading(Localize("Loading demo files"), "", 0, false);
+		pSelf->RenderLoading(Localize("Loading demo files"), "", 0);
 	}
 
 	return 0;

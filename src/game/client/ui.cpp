@@ -258,13 +258,13 @@ void CUi::Update(vec2 MouseWorldPos)
 	m_ProgressSpinnerOffset = std::fmod(m_ProgressSpinnerOffset, 1.0f);
 }
 
-void CUi::DebugRender()
+void CUi::DebugRender(float X, float Y)
 {
 	MapScreen();
 
 	char aBuf[128];
 	str_format(aBuf, sizeof(aBuf), "hot=%p nexthot=%p active=%p lastactive=%p", HotItem(), NextHotItem(), ActiveItem(), m_pLastActiveItem);
-	TextRender()->Text(2.0f, Screen()->h - 12.0f, 10.0f, aBuf);
+	TextRender()->Text(X, Y, 10.0f, aBuf);
 }
 
 bool CUi::MouseInside(const CUIRect *pRect) const
@@ -1548,7 +1548,7 @@ void CUi::RenderProgressSpinner(vec2 Center, float OuterRadius, const SProgressS
 	Graphics()->QuadsEnd();
 }
 
-void CUi::DoPopupMenu(const SPopupMenuId *pId, int X, int Y, int Width, int Height, void *pContext, FPopupMenuFunction pfnFunc, const SPopupMenuProperties &Props)
+void CUi::DoPopupMenu(const SPopupMenuId *pId, float X, float Y, float Width, float Height, void *pContext, FPopupMenuFunction pfnFunc, const SPopupMenuProperties &Props)
 {
 	constexpr float Margin = SPopupMenu::POPUP_BORDER + SPopupMenu::POPUP_MARGIN;
 	if(X + Width > Screen()->w - Margin)

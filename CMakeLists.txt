@@ -689,8 +689,8 @@ endif()
 if(CLIENT AND NOT(SDL2_FOUND))
   message(SEND_ERROR "You must install SDL2 to compile the ${CMAKE_PROJECT_NAME} client")
 endif()
-if(TARGET_OS STREQUAL "android" AND CLIENT AND NOT(CRYPTO_FOUND))
-  message(SEND_ERROR "You must install OpenSSL to compile the ${CMAKE_PROJECT_NAME} client")
+if(TARGET_OS STREQUAL "android" AND NOT(CRYPTO_FOUND))
+  message(SEND_ERROR "You must install OpenSSL to compile ${CMAKE_PROJECT_NAME}")
 endif()
 if(NOT(GTEST_FOUND))
   if(DOWNLOAD_GTEST)
@@ -741,7 +741,7 @@ elseif(TARGET_OS STREQUAL "android")
       src/android/android_main.cpp
     )
     set(PLATFORM_LIBS ${TW_ANDROID_LIBS})
-    set(PLATFORM_CLIENT_LIBS ${PLATFORM_LIBS})
+    set(PLATFORM_CLIENT_LIBS ${TW_ANDROID_LIBS_CLIENT})
     set(PLATFORM_CLIENT_INCLUDE_DIRS)
 else()
   find_package(Notify)
@@ -1133,11 +1133,10 @@ set(EXPECTED_DATA
   audio/wp_switch-02.wv
   audio/wp_switch-03.wv
   autoexec_server.cfg
+  background_noise.png
   blob.png
   censorlist.txt
   communityicons/none.png
-  console.png
-  console_bar.png
   countryflags/AD.png
   countryflags/AE.png
   countryflags/AF.png
@@ -1146,6 +1145,7 @@ set(EXPECTED_DATA
   countryflags/AL.png
   countryflags/AM.png
   countryflags/AO.png
+  countryflags/AQ.png
   countryflags/AR.png
   countryflags/AS.png
   countryflags/AT.png
@@ -1408,7 +1408,6 @@ set(EXPECTED_DATA
   editor/automap/round_tiles.rules
   editor/automap/water.rules
   editor/automap/winter_main.rules
-  editor/background.png
   editor/checker.png
   editor/cursor.png
   editor/cursor_resize.png
@@ -1446,7 +1445,7 @@ set(EXPECTED_DATA
   gui_logo.png
   hud.png
   languages/arabic.txt
-  languages/azerbaijanese.txt
+  languages/azerbaijani.txt
   languages/belarusian.txt
   languages/bosnian.txt
   languages/brazilian_portuguese.txt
@@ -1846,6 +1845,7 @@ set(EXPECTED_DATA
   themes/winter.png
   themes/winter_day.map
   themes/winter_night.map
+  touch_controls.json
   wordlist.txt
 )
 
@@ -2402,6 +2402,8 @@ if(CLIENT)
     components/statboard.h
     components/tooltips.cpp
     components/tooltips.h
+    components/touch_controls.cpp
+    components/touch_controls.h
     components/voting.cpp
     components/voting.h
     gameclient.cpp
@@ -2780,14 +2782,25 @@ if(SERVER)
   )
 
   # Target
-  add_executable(game-server
-    ${DEPS}
-    ${SERVER_SRC}
-    ${SERVER_ICON}
-    $<TARGET_OBJECTS:engine-shared>
-    $<TARGET_OBJECTS:game-shared>
-    $<TARGET_OBJECTS:rust-bridge-shared>
-  )
+  if(TARGET_OS STREQUAL "android")
+    add_library(game-server SHARED
+      ${DEPS}
+      ${SERVER_SRC}
+      ${SERVER_ICON}
+      $<TARGET_OBJECTS:engine-shared>
+      $<TARGET_OBJECTS:game-shared>
+      $<TARGET_OBJECTS:rust-bridge-shared>
+    )
+  else()
+    add_executable(game-server
+      ${DEPS}
+      ${SERVER_SRC}
+      ${SERVER_ICON}
+      $<TARGET_OBJECTS:engine-shared>
+      $<TARGET_OBJECTS:game-shared>
+      $<TARGET_OBJECTS:rust-bridge-shared>
+    )
+  endif()
   set_property(TARGET game-server
       PROPERTY OUTPUT_NAME ${SERVER_EXECUTABLE}
   )
@@ -3549,6 +3562,7 @@ foreach(target ${TARGETS_OWN})
   target_compile_definitions(${target} PRIVATE $<$<CONFIG:Debug>:CONF_DEBUG>)
   target_include_directories(${target} SYSTEM PRIVATE ${CURL_INCLUDE_DIRS} ${SQLite3_INCLUDE_DIRS} ${ZLIB_INCLUDE_DIRS})
   target_compile_definitions(${target} PRIVATE GLEW_STATIC)
+  target_compile_definitions(${target} PRIVATE _FILE_OFFSET_BITS=64) # Ensure off_t is 64 bit for ftello and fseeko functions
   if(CRYPTO_FOUND)
     target_compile_definitions(${target} PRIVATE CONF_OPENSSL)
     target_include_directories(${target} SYSTEM PRIVATE ${CRYPTO_INCLUDE_DIRS})
@@ -3597,6 +3611,13 @@ foreach(target ${TARGETS_OWN})
   endif()
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
    target_compile_definitions(${target} PRIVATE CONF_WEBASM)
+  endif()
+  if(TARGET_OS STREQUAL "android")
+    if(ANDROID_PACKAGE_NAME)
+      target_compile_definitions(${target} PRIVATE ANDROID_PACKAGE_NAME=${ANDROID_PACKAGE_NAME})
+    else()
+      message(FATAL_ERROR "ANDROID_PACKAGE_NAME must define the package name when compiling for Android (using underscores instead of dots, e.g. org_example_app)")
+    endif()
   endif()
 endforeach()
 

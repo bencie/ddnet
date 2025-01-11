@@ -1439,20 +1439,20 @@ CUi::EPopupMenuFunctionResult CEditor::PopupEnvPoint(void *pContext, CUIRect Vie
 			{
 				auto [SelectedIndex, SelectedChannel] = pEditor->m_SelectedTangentInPoint;
 
-				pEditor->m_EnvelopeEditorHistory.Execute(std::make_shared<CEditorActionEditEnvelopePointValue>(pEditor, pEditor->m_SelectedEnvelope, SelectedIndex, SelectedChannel, CEditorActionEditEnvelopePointValue::EType::TANGENT_IN, static_cast<int>(OldTime * 1000.0f), f2fx(OldValue), static_cast<int>(CurrentTime * 1000.0f), f2fx(CurrentValue)));
+				pEditor->m_EnvelopeEditorHistory.Execute(std::make_shared<CEditorActionEditEnvelopePointValue>(pEditor, pEditor->m_SelectedEnvelope, SelectedIndex, SelectedChannel, CEditorActionEditEnvelopePointValue::EType::TANGENT_IN, OldTime, OldValue, static_cast<int>(CurrentTime * 1000.0f), f2fx(CurrentValue)));
 				CurrentTime = (pEnvelope->m_vPoints[SelectedIndex].m_Time + pEnvelope->m_vPoints[SelectedIndex].m_Bezier.m_aInTangentDeltaX[SelectedChannel]) / 1000.0f;
 			}
 			else if(pEditor->IsTangentOutSelected())
 			{
 				auto [SelectedIndex, SelectedChannel] = pEditor->m_SelectedTangentOutPoint;
 
-				pEditor->m_EnvelopeEditorHistory.Execute(std::make_shared<CEditorActionEditEnvelopePointValue>(pEditor, pEditor->m_SelectedEnvelope, SelectedIndex, SelectedChannel, CEditorActionEditEnvelopePointValue::EType::TANGENT_OUT, static_cast<int>(OldTime * 1000.0f), f2fx(OldValue), static_cast<int>(CurrentTime * 1000.0f), f2fx(CurrentValue)));
+				pEditor->m_EnvelopeEditorHistory.Execute(std::make_shared<CEditorActionEditEnvelopePointValue>(pEditor, pEditor->m_SelectedEnvelope, SelectedIndex, SelectedChannel, CEditorActionEditEnvelopePointValue::EType::TANGENT_OUT, OldTime, OldValue, static_cast<int>(CurrentTime * 1000.0f), f2fx(CurrentValue)));
 				CurrentTime = (pEnvelope->m_vPoints[SelectedIndex].m_Time + pEnvelope->m_vPoints[SelectedIndex].m_Bezier.m_aOutTangentDeltaX[SelectedChannel]) / 1000.0f;
 			}
 			else
 			{
 				auto [SelectedIndex, SelectedChannel] = pEditor->m_vSelectedEnvelopePoints.front();
-				pEditor->m_EnvelopeEditorHistory.Execute(std::make_shared<CEditorActionEditEnvelopePointValue>(pEditor, pEditor->m_SelectedEnvelope, SelectedIndex, SelectedChannel, CEditorActionEditEnvelopePointValue::EType::POINT, static_cast<int>(OldTime * 1000.0f), f2fx(OldValue), static_cast<int>(CurrentTime * 1000.0f), f2fx(CurrentValue)));
+				pEditor->m_EnvelopeEditorHistory.Execute(std::make_shared<CEditorActionEditEnvelopePointValue>(pEditor, pEditor->m_SelectedEnvelope, SelectedIndex, SelectedChannel, CEditorActionEditEnvelopePointValue::EType::POINT, OldTime, OldValue, static_cast<int>(CurrentTime * 1000.0f), f2fx(CurrentValue)));
 
 				if(SelectedIndex != 0)
 				{
@@ -1732,8 +1732,16 @@ CUi::EPopupMenuFunctionResult CEditor::PopupImage(void *pContext, CUIRect View, 
 	View.HSplitTop(RowHeight, &Slot, &View);
 	if(pEditor->DoButton_MenuItem(&s_RemoveButton, "Remove", 0, &Slot, 0, "Removes the image from the map"))
 	{
-		pEditor->m_Map.m_vpImages.erase(pEditor->m_Map.m_vpImages.begin() + pEditor->m_SelectedImage);
-		pEditor->m_Map.ModifyImageIndex(gs_ModifyIndexDeleted(pEditor->m_SelectedImage));
+		if(IsAssetUsed(FILETYPE_IMG, pEditor->m_SelectedImage, pEditor))
+		{
+			pEditor->m_PopupEventType = POPEVENT_REMOVE_USED_IMAGE;
+			pEditor->m_PopupEventActivated = true;
+		}
+		else
+		{
+			pEditor->m_Map.m_vpImages.erase(pEditor->m_Map.m_vpImages.begin() + pEditor->m_SelectedImage);
+			pEditor->m_Map.ModifyImageIndex(gs_ModifyIndexDeleted(pEditor->m_SelectedImage));
+		}
 		return CUi::POPUP_CLOSE_CURRENT;
 	}
 
@@ -1834,8 +1842,16 @@ CUi::EPopupMenuFunctionResult CEditor::PopupSound(void *pContext, CUIRect View, 
 	View.HSplitTop(RowHeight, &Slot, &View);
 	if(pEditor->DoButton_MenuItem(&s_RemoveButton, "Remove", 0, &Slot, 0, "Removes the sound from the map"))
 	{
-		pEditor->m_Map.m_vpSounds.erase(pEditor->m_Map.m_vpSounds.begin() + pEditor->m_SelectedSound);
-		pEditor->m_Map.ModifySoundIndex(gs_ModifyIndexDeleted(pEditor->m_SelectedSound));
+		if(IsAssetUsed(FILETYPE_SOUND, pEditor->m_SelectedImage, pEditor))
+		{
+			pEditor->m_PopupEventType = POPEVENT_REMOVE_USED_SOUND;
+			pEditor->m_PopupEventActivated = true;
+		}
+		else
+		{
+			pEditor->m_Map.m_vpSounds.erase(pEditor->m_Map.m_vpSounds.begin() + pEditor->m_SelectedSound);
+			pEditor->m_Map.ModifySoundIndex(gs_ModifyIndexDeleted(pEditor->m_SelectedSound));
+		}
 		return CUi::POPUP_CLOSE_CURRENT;
 	}
 
@@ -2066,6 +2082,16 @@ CUi::EPopupMenuFunctionResult CEditor::PopupEvent(void *pContext, CUIRect View, 
 		pTitle = "Too many colors";
 		pMessage = "The client only supports 64 images but more would be needed to add the selected image as tileart.";
 	}
+	else if(pEditor->m_PopupEventType == POPEVENT_REMOVE_USED_IMAGE)
+	{
+		pTitle = "Remove image";
+		pMessage = "This image is used in the map. Removing it will reset all layers that use this image to their default.\n\nRemove anyway?";
+	}
+	else if(pEditor->m_PopupEventType == POPEVENT_REMOVE_USED_SOUND)
+	{
+		pTitle = "Remove sound";
+		pMessage = "This sound is used in the map. Removing it will reset all layers that use this sound to their default.\n\nRemove anyway?";
+	}
 	else
 	{
 		dbg_assert(false, "m_PopupEventType invalid");
@@ -2171,6 +2197,16 @@ CUi::EPopupMenuFunctionResult CEditor::PopupEvent(void *pContext, CUIRect View, 
 		else if(pEditor->m_PopupEventType == POPEVENT_PIXELART_MANY_COLORS)
 		{
 			pEditor->AddTileart();
+		}
+		else if(pEditor->m_PopupEventType == POPEVENT_REMOVE_USED_IMAGE)
+		{
+			pEditor->m_Map.m_vpImages.erase(pEditor->m_Map.m_vpImages.begin() + pEditor->m_SelectedImage);
+			pEditor->m_Map.ModifyImageIndex(gs_ModifyIndexDeleted(pEditor->m_SelectedImage));
+		}
+		else if(pEditor->m_PopupEventType == POPEVENT_REMOVE_USED_SOUND)
+		{
+			pEditor->m_Map.m_vpSounds.erase(pEditor->m_Map.m_vpSounds.begin() + pEditor->m_SelectedSound);
+			pEditor->m_Map.ModifySoundIndex(gs_ModifyIndexDeleted(pEditor->m_SelectedSound));
 		}
 		pEditor->m_PopupEventWasActivated = false;
 		return CUi::POPUP_CLOSE_CURRENT;
@@ -2471,7 +2507,7 @@ CUi::EPopupMenuFunctionResult CEditor::PopupTele(void *pContext, CUIRect View, b
 	static std::vector<ColorRGBA> s_vColors = {
 		ColorRGBA(0.5f, 1, 0.5f, 0.5f),
 		ColorRGBA(0.5f, 1, 0.5f, 0.5f),
-		ColorRGBA(0.5f, 1, 0.5f, 0.5f),
+		ColorRGBA(1, 0.5f, 0.5f, 0.5f),
 	};
 	enum
 	{
@@ -2491,7 +2527,10 @@ CUi::EPopupMenuFunctionResult CEditor::PopupTele(void *pContext, CUIRect View, b
 			int TeleNumber = pEditor->FindNextFreeTeleNumber();
 
 			if(TeleNumber != -1)
+			{
 				pEditor->m_TeleNumber = TeleNumber;
+				pEditor->AdjustBrushSpecialTiles(false);
+			}
 		}
 
 		static int s_NextFreeCheckpointPid = 0;
@@ -2500,7 +2539,10 @@ CUi::EPopupMenuFunctionResult CEditor::PopupTele(void *pContext, CUIRect View, b
 			int CPNumber = pEditor->FindNextFreeTeleNumber(true);
 
 			if(CPNumber != -1)
+			{
 				pEditor->m_TeleCheckpointNumber = CPNumber;
+				pEditor->AdjustBrushSpecialTiles(false);
+			}
 		}
 
 		static int s_NextFreeViewPid = 0;
@@ -2523,9 +2565,15 @@ CUi::EPopupMenuFunctionResult CEditor::PopupTele(void *pContext, CUIRect View, b
 		int NewVal = 0;
 		int Prop = pEditor->DoProperties(&NumberPicker, aProps, s_aIds, &NewVal, s_vColors);
 		if(Prop == PROP_TELE)
+		{
 			pEditor->m_TeleNumber = (NewVal - 1 + 255) % 255 + 1;
+			pEditor->AdjustBrushSpecialTiles(false);
+		}
 		else if(Prop == PROP_TELE_CP)
+		{
 			pEditor->m_TeleCheckpointNumber = (NewVal - 1 + 255) % 255 + 1;
+			pEditor->AdjustBrushSpecialTiles(false);
+		}
 		else if(Prop == PROP_TELE_VIEW)
 			pEditor->m_ViewTeleNumber = (NewVal - 1 + 255) % 255 + 1;
 
@@ -2868,6 +2916,47 @@ CUi::EPopupMenuFunctionResult CEditor::PopupAnimateSettings(void *pContext, CUIR
 	if(pEditor->DoEditBox(&s_SpeedInput, &EditBox, 10.0f, IGraphics::CORNER_NONE, "The animation speed"))
 	{
 		pEditor->m_AnimateSpeed = clamp(s_SpeedInput.GetFloat(), MIN_ANIM_SPEED, MAX_ANIM_SPEED);
+	}
+
+	return CUi::POPUP_KEEP_OPEN;
+}
+
+CUi::EPopupMenuFunctionResult CEditor::PopupEnvelopeCurvetype(void *pContext, CUIRect View, bool Active)
+{
+	CEditor *pEditor = static_cast<CEditor *>(pContext);
+
+	if(pEditor->m_SelectedEnvelope < 0 || pEditor->m_SelectedEnvelope >= (int)pEditor->m_Map.m_vpEnvelopes.size())
+	{
+		return CUi::POPUP_CLOSE_CURRENT;
+	}
+	std::shared_ptr<CEnvelope> pEnvelope = pEditor->m_Map.m_vpEnvelopes[pEditor->m_SelectedEnvelope];
+
+	if(pEditor->m_PopupEnvelopeSelectedPoint < 0 || pEditor->m_PopupEnvelopeSelectedPoint >= (int)pEnvelope->m_vPoints.size())
+	{
+		return CUi::POPUP_CLOSE_CURRENT;
+	}
+	CEnvPoint_runtime &SelectedPoint = pEnvelope->m_vPoints[pEditor->m_PopupEnvelopeSelectedPoint];
+
+	static const char *const TYPE_NAMES[NUM_CURVETYPES] = {"Step", "Linear", "Slow", "Fast", "Smooth", "Bezier"};
+	static char s_aButtonIds[NUM_CURVETYPES] = {0};
+
+	for(int Type = 0; Type < NUM_CURVETYPES; Type++)
+	{
+		CUIRect Button;
+		View.HSplitTop(14.0f, &Button, &View);
+
+		if(pEditor->DoButton_MenuItem(&s_aButtonIds[Type], TYPE_NAMES[Type], Type == SelectedPoint.m_Curvetype, &Button))
+		{
+			const int PrevCurve = SelectedPoint.m_Curvetype;
+			if(PrevCurve != Type)
+			{
+				SelectedPoint.m_Curvetype = Type;
+				pEditor->m_EnvelopeEditorHistory.RecordAction(std::make_shared<CEditorActionEnvelopeEditPoint>(pEditor,
+					pEditor->m_SelectedEnvelope, pEditor->m_PopupEnvelopeSelectedPoint, 0, CEditorActionEnvelopeEditPoint::EEditType::CURVE_TYPE, PrevCurve, SelectedPoint.m_Curvetype));
+				pEditor->m_Map.OnModify();
+				return CUi::POPUP_CLOSE_CURRENT;
+			}
+		}
 	}
 
 	return CUi::POPUP_KEEP_OPEN;

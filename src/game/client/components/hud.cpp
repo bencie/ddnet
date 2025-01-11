@@ -86,6 +86,8 @@ void CHud::OnInit()
 {
 	OnReset();
 
+	Graphics()->SetColor(1.0, 1.0, 1.0, 1.0);
+
 	m_HudQuadContainerIndex = Graphics()->CreateQuadContainer(false);
 	Graphics()->QuadsSetSubset(0, 0, 1, 1);
 	PrepareAmmoHealthAndArmorQuads();
@@ -177,7 +179,6 @@ void CHud::RenderScoreHud()
 	// render small score hud
 	if(!(m_pClient->m_Snap.m_pGameInfoObj->m_GameStateFlags & GAMESTATEFLAG_GAMEOVER))
 	{
-		int GameFlags = m_pClient->m_Snap.m_pGameInfoObj->m_GameFlags;
 		float StartY = 229.0f; // the height of this display is 56, so EndY is 285
 
 		const float ScoreSingleBoxHeight = 18.0f;
@@ -185,7 +186,7 @@ void CHud::RenderScoreHud()
 		bool ForceScoreInfoInit = !m_aScoreInfo[0].m_Initialized || !m_aScoreInfo[1].m_Initialized;
 		m_aScoreInfo[0].m_Initialized = m_aScoreInfo[1].m_Initialized = true;
 
-		if(GameFlags & GAMEFLAG_TEAMS && m_pClient->m_Snap.m_pGameDataObj)
+		if(m_pClient->IsTeamPlay() && m_pClient->m_Snap.m_pGameDataObj)
 		{
 			char aScoreTeam[2][16];
 			str_format(aScoreTeam[TEAM_RED], sizeof(aScoreTeam[TEAM_RED]), "%d", m_pClient->m_Snap.m_pGameDataObj->m_TeamscoreRed);
@@ -211,7 +212,7 @@ void CHud::RenderScoreHud()
 			static float s_TextWidth100 = TextRender()->TextWidth(14.0f, "100", -1, -1.0f);
 			float ScoreWidthMax = maximum(maximum(m_aScoreInfo[0].m_ScoreTextWidth, m_aScoreInfo[1].m_ScoreTextWidth), s_TextWidth100);
 			float Split = 3.0f;
-			float ImageSize = (GameFlags & GAMEFLAG_FLAGS) ? 16.0f : Split;
+			float ImageSize = (m_pClient->m_Snap.m_pGameInfoObj->m_GameFlags & GAMEFLAG_FLAGS) ? 16.0f : Split;
 			for(int t = 0; t < 2; t++)
 			{
 				// draw box
@@ -245,7 +246,7 @@ void CHud::RenderScoreHud()
 					TextRender()->RenderTextContainer(m_aScoreInfo[t].m_TextScoreContainerIndex, TColor, TOutlineColor);
 				}
 
-				if(GameFlags & GAMEFLAG_FLAGS)
+				if(m_pClient->m_Snap.m_pGameInfoObj->m_GameFlags & GAMEFLAG_FLAGS)
 				{
 					int BlinkTimer = (m_pClient->m_aFlagDropTick[t] != 0 &&
 								 (Client()->GameTick(g_Config.m_ClDummy) - m_pClient->m_aFlagDropTick[t]) / Client()->GameTickSpeed() >= 25) ?
@@ -569,7 +570,7 @@ void CHud::RenderTeambalanceWarning()
 {
 	// render prompt about team-balance
 	bool Flash = time() / (time_freq() / 2) % 2 == 0;
-	if(m_pClient->m_Snap.m_pGameInfoObj->m_GameFlags & GAMEFLAG_TEAMS)
+	if(m_pClient->IsTeamPlay())
 	{
 		int TeamDiff = m_pClient->m_Snap.m_aTeamSize[TEAM_RED] - m_pClient->m_Snap.m_aTeamSize[TEAM_BLUE];
 		if(g_Config.m_ClWarningTeambalance && (TeamDiff >= 2 || TeamDiff <= -2))
@@ -587,16 +588,68 @@ void CHud::RenderTeambalanceWarning()
 
 void CHud::RenderCursor()
 {
-	if(!m_pClient->m_Snap.m_pLocalCharacter || Client()->State() == IClient::STATE_DEMOPLAYBACK)
+	if(Client()->State() != IClient::STATE_DEMOPLAYBACK && m_pClient->m_Snap.m_pLocalCharacter)
+	{
+		// render local cursor
+		int CurWeapon = maximum(0, m_pClient->m_Snap.m_pLocalCharacter->m_Weapon % NUM_WEAPONS);
+		vec2 TargetPos = m_pClient->m_Controls.m_aTargetPos[g_Config.m_ClDummy];
+
+		RenderTools()->MapScreenToInterface(m_pClient->m_Camera.m_Center.x, m_pClient->m_Camera.m_Center.y);
+		Graphics()->SetColor(1.f, 1.f, 1.f, 1.f);
+		Graphics()->TextureSet(m_pClient->m_GameSkin.m_aSpriteWeaponCursors[CurWeapon]);
+		Graphics()->RenderQuadContainerAsSprite(m_HudQuadContainerIndex, m_aCursorOffset[CurWeapon], TargetPos.x, TargetPos.y);
+		return;
+	}
+
+	if(!g_Config.m_ClSpecCursor || !m_pClient->m_CursorInfo.IsAvailable())
 		return;
 
-	RenderTools()->MapScreenToInterface(m_pClient->m_Camera.m_Center.x, m_pClient->m_Camera.m_Center.y);
+	bool RenderSpecCursor = (m_pClient->m_Snap.m_SpecInfo.m_Active && m_pClient->m_Snap.m_SpecInfo.m_SpectatorId != SPEC_FREEVIEW) || Client()->State() == IClient::STATE_DEMOPLAYBACK;
 
-	// render cursor
-	int CurWeapon = m_pClient->m_Snap.m_pLocalCharacter->m_Weapon % NUM_WEAPONS;
-	Graphics()->SetColor(1.f, 1.f, 1.f, 1.f);
+	if(!RenderSpecCursor)
+		return;
+
+	int CurWeapon = maximum(0, m_pClient->m_CursorInfo.Weapon() % NUM_WEAPONS);
+	vec2 TargetPos = m_pClient->m_CursorInfo.WorldTarget();
+
+	float CenterX = m_pClient->m_Camera.m_Center.x;
+	float CenterY = m_pClient->m_Camera.m_Center.y;
+	float Zoom = m_pClient->m_Camera.m_Zoom;
+
+	float aPoints[4];
+	RenderTools()->MapScreenToWorld(CenterX, CenterY, 100.0f, 100.0f, 100.0f, 0, 0, Graphics()->ScreenAspect(), Zoom, aPoints);
+	Graphics()->MapScreen(aPoints[0], aPoints[1], aPoints[2], aPoints[3]);
+
+	vec2 ScreenPos = TargetPos - m_pClient->m_Camera.m_Center;
+
+	bool Clamped = false;
+	float HalfWidth = CenterX - aPoints[0];
+	float HalfHeight = CenterY - aPoints[1];
+
+	// specialized lineseg-rect intersection
+	// https://gist.github.com/ChickenProp/3194723
+	if(ScreenPos.x < -HalfWidth || ScreenPos.x > HalfWidth || ScreenPos.y < -HalfHeight || ScreenPos.y > HalfHeight)
+	{
+		float aDeltas[] = {ScreenPos.x, ScreenPos.y};
+		float aBounds[] = {HalfWidth, HalfHeight};
+		float ClampFactor = INFINITY;
+
+		static_assert(std::size(aDeltas) == std::size(aBounds), "delta and bounds arrays must have the same size");
+		for(std::size_t i = 0; i < std::size(aDeltas); i++)
+		{
+			float t = absolute(aBounds[i] / aDeltas[i]);
+			if(ClampFactor > t)
+				ClampFactor = t;
+		}
+
+		Clamped = true;
+		TargetPos = ScreenPos * ClampFactor + m_pClient->m_Camera.m_Center;
+	}
+
+	// render spec cursor
+	Graphics()->SetColor(1.f, 1.f, 1.f, Clamped ? .5f : 1.f);
 	Graphics()->TextureSet(m_pClient->m_GameSkin.m_aSpriteWeaponCursors[CurWeapon]);
-	Graphics()->RenderQuadContainerAsSprite(m_HudQuadContainerIndex, m_aCursorOffset[CurWeapon], m_pClient->m_Controls.m_aTargetPos[g_Config.m_ClDummy].x, m_pClient->m_Controls.m_aTargetPos[g_Config.m_ClDummy].y);
+	Graphics()->RenderQuadContainerAsSprite(m_HudQuadContainerIndex, m_aCursorOffset[CurWeapon], TargetPos.x, TargetPos.y, Zoom, Zoom);
 }
 
 void CHud::PrepareAmmoHealthAndArmorQuads()
@@ -684,7 +737,7 @@ void CHud::RenderAmmoHealthAndArmor(const CNetObj_Character *pCharacter)
 		// ammo display
 		float AmmoOffsetY = GameClient()->m_GameInfo.m_HudHealthArmor ? 24 : 0;
 		int CurWeapon = pCharacter->m_Weapon % NUM_WEAPONS;
-		if(m_pClient->m_GameSkin.m_aSpriteWeaponProjectiles[CurWeapon].IsValid())
+		if(CurWeapon >= 0 && m_pClient->m_GameSkin.m_aSpriteWeaponProjectiles[CurWeapon].IsValid())
 		{
 			Graphics()->TextureSet(m_pClient->m_GameSkin.m_aSpriteWeaponProjectiles[CurWeapon]);
 			if(AmmoOffsetY > 0)
@@ -1415,6 +1468,27 @@ void CHud::RenderSpectatorHud()
 		str_copy(aBuf, Localize("Free-View"));
 	}
 	TextRender()->Text(m_Width - 174.0f, m_Height - 15.0f + (15.f - 8.f) / 2.f, 8.0f, aBuf, -1.0f);
+
+	// draw the camera info
+	if(m_pClient->m_Camera.SpectatingPlayer() && m_pClient->m_Camera.CanUseAutoSpecCamera() && g_Config.m_ClSpecAutoSync)
+	{
+		bool AutoSpecCameraEnabled = m_pClient->m_Camera.m_AutoSpecCamera;
+		const char *pLabelText = Localize("AUTO", "Spectating Camera Mode Icon");
+		const float TextWidth = TextRender()->TextWidth(6.0f, pLabelText);
+
+		constexpr float RightMargin = 4.0f;
+		constexpr float IconWidth = 6.0f;
+		constexpr float Padding = 3.0f;
+		const float TagWidth = IconWidth + TextWidth + Padding * 3.0f;
+		const float TagX = m_Width - RightMargin - TagWidth;
+		Graphics()->DrawRect(TagX, m_Height - 12.0f, TagWidth, 10.0f, ColorRGBA(1.0f, 1.0f, 1.0f, AutoSpecCameraEnabled ? 0.50f : 0.10f), IGraphics::CORNER_ALL, 2.5f);
+		TextRender()->TextColor(1, 1, 1, AutoSpecCameraEnabled ? 1.0f : 0.65f);
+		TextRender()->SetFontPreset(EFontPreset::ICON_FONT);
+		TextRender()->Text(TagX + Padding, m_Height - 10.0f, 6.0f, FontIcons::FONT_ICON_CAMERA, -1.0f);
+		TextRender()->SetFontPreset(EFontPreset::DEFAULT_FONT);
+		TextRender()->Text(TagX + Padding + IconWidth + Padding, m_Height - 10.0f, 6.0f, pLabelText, -1.0f);
+		TextRender()->TextColor(1, 1, 1, 1);
+	}
 }
 
 void CHud::RenderLocalTime(float x)
