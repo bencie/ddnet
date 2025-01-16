@@ -197,6 +197,23 @@ MACRO_CONFIG_STR(ClDummy7SkinHands, dummy7_skin_hands, protocol7::MAX_SKIN_ARRAY
 MACRO_CONFIG_STR(ClDummy7SkinFeet, dummy7_skin_feet, protocol7::MAX_SKIN_ARRAY_SIZE, "standard", CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Dummy skin feet")
 MACRO_CONFIG_STR(ClDummy7SkinEyes, dummy7_skin_eyes, protocol7::MAX_SKIN_ARRAY_SIZE, "standard", CFGFLAG_CLIENT | CFGFLAG_SAVE | CFGFLAG_INSENSITIVE, "Dummy skin eyes")
 
+// Trails
+MACRO_CONFIG_INT(ClTeeTrail, cl_tee_trail, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Enable Tee trails")
+MACRO_CONFIG_INT(ClTeeTrailOthers, cl_tee_trail_others, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show tee trails for other players")
+MACRO_CONFIG_INT(ClTeeTrailWidth, cl_tee_trail_width, 15, 0, 200, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail width")
+MACRO_CONFIG_INT(ClTeeTrailLength, cl_tee_trail_length, 25, 5, 2000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail length")
+MACRO_CONFIG_INT(ClTeeTrailAlpha, cl_tee_trail_alpha, 80, 1, 100, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail alpha")
+MACRO_CONFIG_COL(ClTeeTrailColor, cl_tee_trail_color, 255, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail color")
+MACRO_CONFIG_INT(ClTeeTrailUseTeeColor, cl_tee_trail_use_tee_color, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Use the color of the tee as the color of the trail")
+MACRO_CONFIG_INT(ClTeeTrailTaper, cl_tee_trail_taper, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Taper tee trail over length")
+MACRO_CONFIG_INT(ClTeeTrailFade, cl_tee_trail_fade, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Fade trail alpha over length")
+MACRO_CONFIG_INT(ClTeeTrailRainbow, cl_tee_trail_rainbow, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Rainbow tee trails")
+MACRO_CONFIG_INT(ClTeeTrailSpeed, cl_tee_trail_speed, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Speed color tee trails")
+
+MACRO_CONFIG_INT(ClRemoveAnti, cl_remove_anti, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Removes some amount of antiping & player prediction in freeze")
+MACRO_CONFIG_INT(ClUnpredOthersInFreeze, cl_unpred_others_in_freeze, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Dont predict other players if you are frozen")
+MACRO_CONFIG_INT(ClAmIFrozen, EEEfrz, 0, 0, 1, CFGFLAG_CLIENT, "")
+
 MACRO_CONFIG_INT(UiPage, ui_page, 6, 6, 13, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Interface page")
 MACRO_CONFIG_INT(UiSettingsPage, ui_settings_page, 0, 0, 9, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Interface settings page")
 MACRO_CONFIG_INT(UiToolboxPage, ui_toolbox_page, 0, 0, 2, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Toolbox page")
