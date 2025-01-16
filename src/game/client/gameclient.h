@@ -57,6 +57,7 @@
 #include "components/sounds.h"
 #include "components/spectator.h"
 #include "components/statboard.h"
+#include "components/trails.h"
 #include "components/tooltips.h"
 #include "components/touch_controls.h"
 #include "components/voting.h"
@@ -168,6 +169,7 @@ public:
 	CGhost m_Ghost;
 
 	CTooltips m_Tooltips;
+	CTrails m_Trails;
 
 private:
 	std::vector<class CComponent *> m_vpAll;
@@ -494,6 +496,9 @@ public:
 	};
 
 	CClientData m_aClients[MAX_CLIENTS];
+
+	int m_SmoothTick[2] = {};
+	float m_SmoothIntraTick[2] = {};
 
 	class CClientStats
 	{
