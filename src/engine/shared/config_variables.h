@@ -199,8 +199,8 @@ MACRO_CONFIG_STR(ClDummy7SkinEyes, dummy7_skin_eyes, protocol7::MAX_SKIN_ARRAY_S
 // Trails
 MACRO_CONFIG_INT(ClTeeTrail, cl_tee_trail, 0, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Enable Tee trails")
 MACRO_CONFIG_INT(ClTeeTrailOthers, cl_tee_trail_others, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Show tee trails for other players")
-MACRO_CONFIG_INT(ClTeeTrailWidth, cl_tee_trail_width, 15, 0, 200, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail width")
-MACRO_CONFIG_INT(ClTeeTrailLength, cl_tee_trail_length, 25, 5, 2000, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail length")
+MACRO_CONFIG_INT(ClTeeTrailWidth, cl_tee_trail_width, 15, 0, 999999, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail width")
+MACRO_CONFIG_INT(ClTeeTrailLength, cl_tee_trail_length, 25, 5, 999999, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail length")
 MACRO_CONFIG_INT(ClTeeTrailAlpha, cl_tee_trail_alpha, 80, 1, 100, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail alpha")
 MACRO_CONFIG_COL(ClTeeTrailColor, cl_tee_trail_color, 255, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Tee trail color")
 MACRO_CONFIG_INT(ClTeeTrailUseTeeColor, cl_tee_trail_use_tee_color, 1, 0, 1, CFGFLAG_CLIENT | CFGFLAG_SAVE, "Use the color of the tee as the color of the trail")
