@@ -2777,33 +2777,6 @@ void CServer::UpdateDebugDummiesInput()
 			Input.m_Jump = g_Config.m_DbgDummiesJump;
 			Input.m_Hook = g_Config.m_DbgDummiesHook;
 			Input.m_Direction = g_Config.m_DbgDummiesDirection;
-			m_aClients[ClientId].m_Latency = DummyIndex + 1;
-			m_aClients[ClientId].m_aInputs[0].m_GameTick = Tick() + 1;
-			mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
-			m_aClients[ClientId].m_LatestInput = m_aClients[ClientId].m_aInputs[0];
-			m_aClients[ClientId].m_CurrentInput = 0;
-			str_format(m_aClients[ClientId].m_aClan, sizeof(m_aClients[ClientId].m_aClan), "%s%s%s %s%s %d", g_Config.m_DbgDummiesDirection == -1 ? "<" : "", g_Config.m_DbgDummiesDirection == 1 ? ">" : "", g_Config.m_DbgDummiesJump ? "^" : "", g_Config.m_DbgDummiesHook ? "h" : "", g_Config.m_DbgDummiesFire ? "f" : "", g_Config.m_DbgDummiesWeapon);
-		}
-	}
-
-	m_PreviousDebugDummies = ForceDisconnect ? 0 : g_Config.m_DbgDummies;
-}
-void CServer::UpdateDebugDummiesInput()
-{
-	for(int DummyIndex = 0; DummyIndex < maximum(m_PreviousDebugDummies, g_Config.m_DbgDummies); ++DummyIndex)
-	{
-		const int ClientId = MaxClients() - DummyIndex - 1;
-		CClient *pClient = &m_aClients[ClientId];
-		if(m_aClients[ClientId].m_DebugDummy)
-		{
-			CNetObj_PlayerInput Input = {0};
-			Input.m_Fire = g_Config.m_DbgDummiesFire;
-			Input.m_WantedWeapon = g_Config.m_DbgDummiesWeapon;
-			Input.m_TargetX = g_Config.m_DbgDummiesLookX;
-			Input.m_TargetY = g_Config.m_DbgDummiesLookY;
-			Input.m_Jump = g_Config.m_DbgDummiesJump;
-			Input.m_Hook = g_Config.m_DbgDummiesHook;
-			Input.m_Direction = g_Config.m_DbgDummiesDirection;
 			pClient->m_Latency = DummyIndex + 1;
 			pClient->m_aInputs[0].m_GameTick = Tick() + 1;
 			mem_copy(pClient->m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(pClient->m_aInputs[0].m_aData)));

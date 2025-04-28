@@ -74,6 +74,25 @@ void CGameContext::ConSetVel(IConsole::IResult *pResult, void *pUserData)
 		pSelf->m_apPlayers[Victim]->GetCharacter()->SetVelocity(vec2(velX, velY));
 }
 
+void CGameContext::ConSetVel(IConsole::IResult *pResult, void *pUserData)
+{
+	if(pResult->NumArguments() != 3)
+		return;
+
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	if(!CheckClientId(pResult->m_ClientId))
+		return;
+
+	int Victim = pResult->GetInteger(0);
+	float velX = pResult->GetFloat(1);
+	float velY = pResult->GetFloat(2);
+	if(!CheckClientId(pResult->m_ClientId))
+		return;
+
+	if(pSelf->m_apPlayers[Victim])
+		pSelf->m_apPlayers[Victim]->GetCharacter()->SetVelocity(vec2(velX, velY));
+}
+
 void CGameContext::ConMove(IConsole::IResult *pResult, void *pUserData)
 {
 	CGameContext *pSelf = (CGameContext *)pUserData;
@@ -472,6 +491,39 @@ void CGameContext::ConTeleport(IConsole::IResult *pResult, void *pUserData)
 		pChr->ResetJumps();
 		pChr->UnFreeze();
 		pChr->SetVelocity(vec2(0, 0));
+	}
+}
+
+void CGameContext::ConTeleportAll(IConsole::IResult *pResult, void *pUserData)
+{
+	CGameContext *pSelf = (CGameContext *)pUserData;
+	int TeleTo = pResult->NumArguments() ? pResult->GetInteger(0) : pResult->m_ClientId;
+	int AuthLevel = pSelf->Server()->GetAuthedState(pResult->m_ClientId);
+	if(AuthLevel < g_Config.m_SvTeleOthersAuthLevel)
+	{
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tele", "you aren't allowed to tele others");
+		return;
+	}
+
+	CCharacter *pTargetChr = pSelf->GetPlayerChar(TeleTo);
+	if(!pTargetChr)
+	{
+		pSelf->Console()->Print(IConsole::OUTPUT_LEVEL_STANDARD, "tele", "target player not found");
+		return;
+	}
+
+	vec2 Pos = pTargetChr->m_Pos;
+
+	for(int i = 0; i < MAX_CLIENTS; i++)
+	{
+		CCharacter *pChr = pSelf->GetPlayerChar(i);
+
+		if(pChr && pSelf->m_apPlayers[i])
+		{
+			pSelf->Teleport(pChr, Pos);
+			pChr->ResetJumps();
+			pChr->SetVelocity(vec2(0, 0));
+		}
 	}
 }
 

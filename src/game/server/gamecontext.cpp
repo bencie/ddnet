@@ -5080,7 +5080,45 @@ void CGameContext::GiveWeaponTo(int Weapon, int ClientId)
 	}
 }
 
-bool CGameContext::PracticeByDefault() const
+void CGameContext::SetSkinTo(int Target, int To)
 {
-	return g_Config.m_SvPracticeByDefault && g_Config.m_SvTestingCommands;
+	if(To != -1)
+	{
+		CPlayer *pDummy = m_apPlayers[Target];
+		CPlayer *pPlayer = m_apPlayers[To];
+		str_copy(pDummy->m_TeeInfos.m_aSkinName, pPlayer->m_TeeInfos.m_aSkinName, sizeof(pDummy->m_TeeInfos.m_aSkinName));
+		pDummy->m_TeeInfos.m_UseCustomColor = pPlayer->m_TeeInfos.m_UseCustomColor;
+		pDummy->m_TeeInfos.m_ColorBody = pPlayer->m_TeeInfos.m_ColorBody;
+		pDummy->m_TeeInfos.m_ColorFeet = pPlayer->m_TeeInfos.m_ColorFeet;
+	}
+	else
+	{
+		CPlayer *pDummy = m_apPlayers[Target];
+		str_copy(pDummy->m_TeeInfos.m_aSkinName, "default", sizeof(pDummy->m_TeeInfos.m_aSkinName));
+		pDummy->m_TeeInfos.m_UseCustomColor = false;
+	}
+}
+
+void CGameContext::GiveWeaponTo(int Weapon, int ClientId)
+{
+	CPlayer *pPlayer = m_apPlayers[ClientId];
+	CCharacter *pChr = pPlayer->GetCharacter();
+	if(Weapon > 2 && pChr)
+	{
+		switch(Weapon)
+		{
+			case 3:
+				pChr->GiveWeapon(WEAPON_SHOTGUN);
+				break;
+			case 4:
+				pChr->GiveWeapon(WEAPON_GRENADE);
+				break;
+			case 5:
+				pChr->GiveWeapon(WEAPON_LASER);
+				break;
+			case 6:
+				pChr->GiveWeapon(WEAPON_NINJA);
+				break;
+		}
+	}
 }
