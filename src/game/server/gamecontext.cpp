@@ -3993,7 +3993,7 @@ void CGameContext::OnInit(const void *pPersistentData)
 	else
 		m_pController = new CGameControllerDDRace(this);
 
-	ReadCensorList();
+	// ReadCensorList();
 
 	m_TeeHistorianActive = g_Config.m_SvTeeHistorian;
 	if(m_TeeHistorianActive)

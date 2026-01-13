@@ -1443,20 +1443,17 @@ int CServer::NumRconCommands(int ClientId)
 
 void CServer::UpdateClientRconCommands(int ClientId)
 {
-	for(int ClientId = 0; ClientId < MAX_CLIENTS; ClientId++)
+	if(m_aClients[ClientId].m_State != CClient::STATE_EMPTY && m_aClients[ClientId].m_Authed)
 	{
-		if(m_aClients[ClientId].m_State != CClient::STATE_EMPTY && m_aClients[ClientId].m_Authed)
+		int ConsoleAccessLevel = m_aClients[ClientId].ConsoleAccessLevel();
+		for(int i = 0; i < MAX_RCONCMD_SEND && m_aClients[ClientId].m_pRconCmdToSend; ++i)
 		{
-			int ConsoleAccessLevel = GetConsoleAccessLevel(ClientId);
-			for(int i = 0; i < MAX_RCONCMD_SEND && m_aClients[ClientId].m_pRconCmdToSend; ++i)
+			SendRconCmdAdd(m_aClients[ClientId].m_pRconCmdToSend, ClientId);
+			m_aClients[ClientId].m_pRconCmdToSend = m_aClients[ClientId].m_pRconCmdToSend->NextCommandInfo(ConsoleAccessLevel, CFGFLAG_SERVER);
+			if(m_aClients[ClientId].m_pRconCmdToSend == nullptr)
 			{
-				SendRconCmdAdd(m_aClients[ClientId].m_pRconCmdToSend, ClientId);
-				m_aClients[ClientId].m_pRconCmdToSend = m_aClients[ClientId].m_pRconCmdToSend->NextCommandInfo(ConsoleAccessLevel, CFGFLAG_SERVER);
-				if(m_aClients[ClientId].m_pRconCmdToSend == nullptr)
-				{
-					CMsgPacker Msg(NETMSG_RCON_CMD_GROUP_END, true);
-					SendMsg(&Msg, MSGFLAG_VITAL, ClientId);
-				}
+				CMsgPacker Msg(NETMSG_RCON_CMD_GROUP_END, true);
+				SendMsg(&Msg, MSGFLAG_VITAL, ClientId);
 			}
 		}
 	}
@@ -2725,33 +2722,33 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 		if(AddDummy && m_aClients[ClientId].m_State == CClient::STATE_EMPTY)
 		{
 			NewClientCallback(ClientId, this, false);
-			Client.m_DebugDummy = true;
+			m_aClients[ClientId].m_DebugDummy = true;
 
 			// See https://en.wikipedia.org/wiki/Unique_local_address
-			Client.m_DebugDummyAddr.type = NETTYPE_IPV6;
-			Client.m_DebugDummyAddr.ip[0] = 0xfd;
+			m_aClients[ClientId].m_DebugDummyAddr.type = NETTYPE_IPV6;
+			m_aClients[ClientId].m_DebugDummyAddr.ip[0] = 0xfd;
 			// Global ID (40 bits): random
-			secure_random_fill(&Client.m_DebugDummyAddr.ip[1], 5);
+			secure_random_fill(&m_aClients[ClientId].m_DebugDummyAddr.ip[1], 5);
 			// Subnet ID (16 bits): constant
-			Client.m_DebugDummyAddr.ip[6] = 0xc0;
-			Client.m_DebugDummyAddr.ip[7] = 0xde;
+			m_aClients[ClientId].m_DebugDummyAddr.ip[6] = 0xc0;
+			m_aClients[ClientId].m_DebugDummyAddr.ip[7] = 0xde;
 			// Interface ID (64 bits): set to client ID
-			Client.m_DebugDummyAddr.ip[8] = 0x00;
-			Client.m_DebugDummyAddr.ip[9] = 0x00;
-			Client.m_DebugDummyAddr.ip[10] = 0x00;
-			Client.m_DebugDummyAddr.ip[11] = 0x00;
-			uint_to_bytes_be(&Client.m_DebugDummyAddr.ip[12], ClientId);
+			m_aClients[ClientId].m_DebugDummyAddr.ip[8] = 0x00;
+			m_aClients[ClientId].m_DebugDummyAddr.ip[9] = 0x00;
+			m_aClients[ClientId].m_DebugDummyAddr.ip[10] = 0x00;
+			m_aClients[ClientId].m_DebugDummyAddr.ip[11] = 0x00;
+			uint_to_bytes_be(&m_aClients[ClientId].m_DebugDummyAddr.ip[12], ClientId);
 			// Port: random like normal clients
-			Client.m_DebugDummyAddr.port = (secure_rand() % (65535 - 1024)) + 1024;
-			net_addr_str(&Client.m_DebugDummyAddr, Client.m_aDebugDummyAddrString.data(), Client.m_aDebugDummyAddrString.size(), true);
-			net_addr_str(&Client.m_DebugDummyAddr, Client.m_aDebugDummyAddrStringNoPort.data(), Client.m_aDebugDummyAddrStringNoPort.size(), false);
+			m_aClients[ClientId].m_DebugDummyAddr.port = (secure_rand() % (65535 - 1024)) + 1024;
+			net_addr_str(&m_aClients[ClientId].m_DebugDummyAddr, m_aClients[ClientId].m_aDebugDummyAddrString.data(), m_aClients[ClientId].m_aDebugDummyAddrString.size(), true);
+			net_addr_str(&m_aClients[ClientId].m_DebugDummyAddr, m_aClients[ClientId].m_aDebugDummyAddrStringNoPort.data(), m_aClients[ClientId].m_aDebugDummyAddrStringNoPort.size(), false);
 
 			GameServer()->OnClientConnected(ClientId, nullptr);
 			m_aClients[ClientId].m_State = CClient::STATE_INGAME;
 			str_format(m_aClients[ClientId].m_aName, sizeof(m_aClients[ClientId].m_aName), "%d", DummyIndex + 1);
 			GameServer()->OnClientEnter(ClientId);
 		}
-		else if(!AddDummy && Client.m_DebugDummy)
+		else if(!AddDummy && m_aClients[ClientId].m_DebugDummy)
 		{
 			DelClientCallback(ClientId, "Dropping debug dummy", this);
 		}
@@ -2761,33 +2758,7 @@ void CServer::UpdateDebugDummies(bool ForceDisconnect)
 
 	m_PreviousDebugDummies = ForceDisconnect ? 0 : g_Config.m_DbgDummies;
 }
-void CServer::UpdateDebugDummiesInput()
-{
-	for(int DummyIndex = 0; DummyIndex < maximum(m_PreviousDebugDummies, g_Config.m_DbgDummies); ++DummyIndex)
-	{
-		const int ClientId = MaxClients() - DummyIndex - 1;
-		CClient *pClient = &m_aClients[ClientId];
-		if(m_aClients[ClientId].m_DebugDummy)
-		{
-			CNetObj_PlayerInput Input = {0};
-			Input.m_Fire = g_Config.m_DbgDummiesFire;
-			Input.m_WantedWeapon = g_Config.m_DbgDummiesWeapon;
-			Input.m_TargetX = g_Config.m_DbgDummiesLookX;
-			Input.m_TargetY = g_Config.m_DbgDummiesLookY;
-			Input.m_Jump = g_Config.m_DbgDummiesJump;
-			Input.m_Hook = g_Config.m_DbgDummiesHook;
-			Input.m_Direction = g_Config.m_DbgDummiesDirection;
-			m_aClients[ClientId].m_Latency = DummyIndex + 1;
-			m_aClients[ClientId].m_aInputs[0].m_GameTick = Tick() + 1;
-			mem_copy(m_aClients[ClientId].m_aInputs[0].m_aData, &Input, minimum(sizeof(Input), sizeof(m_aClients[ClientId].m_aInputs[0].m_aData)));
-			m_aClients[ClientId].m_LatestInput = m_aClients[ClientId].m_aInputs[0];
-			m_aClients[ClientId].m_CurrentInput = 0;
-			str_format(m_aClients[ClientId].m_aClan, sizeof(m_aClients[ClientId].m_aClan), "%s%s%s %s%s %d", g_Config.m_DbgDummiesDirection == -1 ? "<" : "", g_Config.m_DbgDummiesDirection == 1 ? ">" : "", g_Config.m_DbgDummiesJump ? "^" : "", g_Config.m_DbgDummiesHook ? "h" : "", g_Config.m_DbgDummiesFire ? "f" : "", g_Config.m_DbgDummiesWeapon);
-		}
-	}
 
-	m_PreviousDebugDummies = ForceDisconnect ? 0 : g_Config.m_DbgDummies;
-}
 void CServer::UpdateDebugDummiesInput()
 {
 	for(int DummyIndex = 0; DummyIndex < maximum(m_PreviousDebugDummies, g_Config.m_DbgDummies); ++DummyIndex)
@@ -4258,6 +4229,42 @@ int CServer::MaplistEntryCallback(const char *pFilename, int IsDir, int DirType,
 
 	pThis->m_vMaplistEntries.emplace_back(aFilename);
 	return 0;
+}
+
+CServer::CMaplistEntry::CMaplistEntry(const char *pName)
+{
+	str_copy(m_aName, pName, sizeof(m_aName));
+}
+
+bool CServer::CMaplistEntry::operator<(const CMaplistEntry &Other) const
+{
+	return str_comp(m_aName, Other.m_aName) < 0;
+}
+
+void CServer::UpdateClientMaplistEntries(int ClientId)
+{
+	if(ClientId < 0 || ClientId >= MAX_CLIENTS || m_aClients[ClientId].m_State <= CClient::STATE_AUTH ||
+		m_aClients[ClientId].m_MaplistEntryToSend == CClient::MAPLIST_UNINITIALIZED ||
+		m_aClients[ClientId].m_MaplistEntryToSend == CClient::MAPLIST_DONE)
+		return;
+
+	if(!IsSixup(ClientId))
+		return;
+
+	for(int i = 0; i < 10; ++i)
+	{
+		if(m_aClients[ClientId].m_MaplistEntryToSend >= (int)m_vMaplistEntries.size())
+		{
+			m_aClients[ClientId].m_MaplistEntryToSend = CClient::MAPLIST_DONE;
+			return;
+		}
+
+		CMsgPacker Msg(protocol7::NETMSG_MAPLIST_ENTRY_ADD, true);
+		Msg.AddString(m_vMaplistEntries[m_aClients[ClientId].m_MaplistEntryToSend].m_aName, 0);
+		SendMsg(&Msg, MSGFLAG_VITAL, ClientId);
+
+		m_aClients[ClientId].m_MaplistEntryToSend++;
+	}
 }
 
 void CServer::InitMaplist()
